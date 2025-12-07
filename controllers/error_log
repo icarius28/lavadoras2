@@ -1,0 +1,67 @@
+[03-Dec-2025 21:11:32 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:11:53 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:12:09 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:12:09 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:09 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:16 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:16 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:18 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:18 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:21 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:22 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:24 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[03-Dec-2025 21:42:24 UTC] PHP Fatal error:  Uncaught mysqli_sql_exception: Duplicate entry 'ocastilloam@gmail.com' for key 'correo' in /home/alquilav/public_html/controllers/negocio_controller.php:54
+Stack trace:
+#0 /home/alquilav/public_html/controllers/negocio_controller.php(54): mysqli_stmt->execute()
+#1 {main}
+  thrown in /home/alquilav/public_html/controllers/negocio_controller.php on line 54
+[05-Dec-2025 21:50:56 UTC] PHP Warning:  Undefined array key "id_user" in /home/alquilav/public_html/controllers/lavadora_controller.php on line 42
+[05-Dec-2025 21:51:07 UTC] PHP Warning:  Undefined array key "id_user" in /home/alquilav/public_html/controllers/lavadora_controller.php on line 42
