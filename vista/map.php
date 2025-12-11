@@ -1,10 +1,16 @@
 <?php
-if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
-    $usuarios  = "SELECT id, nombre, latitud, longitud FROM usuarios WHERE conductor_negocio = '{$_SESSION['negocio']}'";
-    $list_usuarios = $conn->query($usuarios);
+// Inicializar $puntos para evitar undefined variable
+$puntos = [];
 
-    $puntos = [];
-    while ($row = $list_usuarios->fetch_assoc()) {
+if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
+    $negocio_id = (int) $_SESSION['negocio'];  // Cast a entero para seguridad
+    
+    $stmt = $conn->prepare("SELECT id, nombre, latitud, longitud FROM usuarios WHERE conductor_negocio = ?");
+    $stmt->bind_param("i", $negocio_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
         $puntos[] = $row;
     }
 }

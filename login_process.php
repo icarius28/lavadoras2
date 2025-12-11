@@ -21,13 +21,24 @@ if (isset($_POST['login'])) {
             $_SESSION['user_id'] = $usuario['id'];
             $_SESSION['user_rol'] = $usuario['rol_id'];
 
+            // Si es rol_id 2 (negocio), obtener el negocio asociado
             if ($usuario['rol_id'] == 2) {
                 $stmt = $conn->prepare("SELECT * FROM negocios WHERE usuario_id = ?");
-                $stmt->bind_param("i", $_SESSION['user_id']);  // "s" significa string
+                $stmt->bind_param("i", $_SESSION['user_id']);
                 $stmt->execute();
                 $result = $stmt->get_result();
                 $negocio = $result->fetch_assoc();
-                $_SESSION['negocio'] = $negocio['id'];
+                
+                // Validar que el negocio existe antes de acceder a sus datos
+                if ($negocio && isset($negocio['id'])) {
+                    $_SESSION['negocio'] = $negocio['id'];
+                } else {
+                    // Usuario sin negocio asignado
+                    require_once 'modelo/helpers.php';
+                    log_error("Usuario rol 2 sin negocio", ['user_id' => $_SESSION['user_id'], 'correo' => $correo]);
+                    echo "Error: Usuario no tiene negocio asignado. Por favor contacte al administrador.";
+                    exit();
+                }
             }
 
             // Redirigir al dashboard

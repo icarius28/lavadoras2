@@ -1,5 +1,6 @@
 <?php
-require_once '../modelo/db.php'; // Asegúrate que conecta correctamente
+require_once '../modelo/db.php';
+require_once '../modelo/helpers.php';
 $conn = conect();
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -37,28 +38,25 @@ if ($action == 'editar_negocio') {
 }
 
 if ($action == 'crear_negocio') {
+    try {
+        // Iniciar transacción para rollback si falla
+        $conn->begin_transaction();
+        
+        // Datos del usuario
+        $nombre_usuario = $_POST['usuario_nombre'];
+        $apellido_usuario = $_POST['usuario_apellido'];
+        $telefono_usuario = $_POST['usuario_telefono'];
+        $correo_usuario = $_POST['usuario_correo'];
+        $usuario_usuario = $_POST['usuario_usuario'];
+        $direccion_usuario = $_POST['direccion'];
+        $contrasena = password_hash($_POST['contrasena'], PASSWORD_DEFAULT);
+        $rol_id = 2;
 
-    // Datos del usuario
-    $nombre_usuario = $_POST['usuario_nombre'];
-    $apellido_usuario = $_POST['usuario_apellido'];
-    $telefono_usuario = $_POST['usuario_telefono'];
-    $correo_usuario = $_POST['usuario_correo'];
-    $usuario_usuario = $_POST['usuario_usuario'];
-    $direccion_usuario = $_POST['direccion'];
-    $contrasena = password_hash($_POST['contrasena'], PASSWORD_DEFAULT);
-    $rol_id = 2;
-
-    // 1️⃣ Verificar si el correo ya existe
-    $check = $conn->prepare("SELECT id FROM usuarios WHERE correo = ?");
-    $check->bind_param("s", $correo_usuario);
-    $check->execute();
-    $check->store_result();
-
-    if ($check->num_rows > 0) {
-        echo 'error_correo'; // El correo está repetido
-        exit;
-    }
-    $check->close();
+        // 1️⃣ Verificar si el correo ya existe usando helper
+        if (email_exists($conn, $correo_usuario)) {
+            echo 'error_correo';
+            exit;
+        }
 
     // 2️⃣ Insertar usuario
     $stmt_user = $conn->prepare("INSERT INTO usuarios 
@@ -77,44 +75,54 @@ if ($action == 'crear_negocio') {
         $rol_id
     );
 
-    if ($stmt_user->execute()) {
+        if ($stmt_user->execute()) {
+            $id_usuario = $stmt_user->insert_id;
 
-        $id_usuario = $stmt_user->insert_id;
+            // Datos del negocio
+            $nombre = $_POST['nombre'];
+            $direccion = $_POST['direccion'];
+            $telefono = $_POST['telefono'];
+            $ciudad = $_POST['ciudad'];
+            $latitud = $_POST['latitud'];
+            $longitud = $_POST['longitud'];
+            $status = 1;
 
-        // Datos del negocio
-        $nombre = $_POST['nombre'];
-        $direccion = $_POST['direccion'];
-        $telefono = $_POST['telefono'];
-        $ciudad = $_POST['ciudad'];
-        $latitud = $_POST['latitud'];
-        $longitud = $_POST['longitud'];
-        $status = 1;
+            // 3️⃣ Insertar negocio
+            $stmt_negocio = $conn->prepare("INSERT INTO negocios 
+                (nombre, direccion, telefono, ciudad, latitud, longitud, usuario_id, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+            $stmt_negocio->bind_param(
+                "ssssddii",
+                $nombre,
+                $direccion,
+                $telefono,
+                $ciudad,
+                $latitud,
+                $longitud,
+                $id_usuario,
+                $status
+            );
 
-        // 3️⃣ Insertar negocio
-        $stmt_negocio = $conn->prepare("INSERT INTO negocios 
-            (nombre, direccion, telefono, ciudad, latitud, longitud, usuario_id, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        );
-        $stmt_negocio->bind_param(
-            "ssssddii",
-            $nombre,
-            $direccion,
-            $telefono,
-            $ciudad,
-            $latitud,
-            $longitud,
-            $id_usuario,
-            $status
-        );
-
-        if ($stmt_negocio->execute()) {
-            echo 'ok';
+            if ($stmt_negocio->execute()) {
+                // Todo exitoso, confirmar transacción
+                $conn->commit();
+                echo 'ok';
+            } else {
+                // Falló negocio, revertir
+                $conn->rollback();
+                echo 'error_negocio';
+            }
         } else {
-            echo 'error_negocio';
+            // Falló usuario, revertir
+            $conn->rollback();
+            echo 'error_usuario';
         }
-
-    } else {
-        echo 'error_usuario';
+    } catch (Exception $e) {
+        // Error inesperado, revertir y loguear
+        $conn->rollback();
+        log_error("Error al crear negocio", ['error' => $e->getMessage()]);
+        echo 'error_sistema';
     }
 }
 

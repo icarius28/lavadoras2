@@ -2,12 +2,13 @@
 $limit = 10;
 $page = isset($_GET['page']) ? $_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
-$search = isset($_GET['search']) ? $_GET['search'] : '';
+$search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Filtro con sesión de negocio
 $where = "";
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
-    $where = " negocio_id = '{$_SESSION['negocio']}' AND ";
+    $negocio_id = (int) $_SESSION['negocio'];
+    $where = " negocio_id = '$negocio_id' AND ";
 }
 
 $sql = "SELECT * FROM proveedores WHERE $where nombre LIKE '%$search%' LIMIT $limit OFFSET $offset";

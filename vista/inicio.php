@@ -38,31 +38,37 @@ while ($row = $result_alquileres_por_mes->fetch_assoc()) {
 }
 
 
-if(isset($_SESSION['negocio']) && $_SESSION['negocio']){
+if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
+    $negocio_id = (int) $_SESSION['negocio'];
+    
+    $sql_alquileres = "SELECT COUNT(*) as total_alquileres FROM alquileres WHERE negocio_id = '$negocio_id'";
+    $result_alquileres = $conn->query($sql_alquileres);
+    $total_alquileres = $result_alquileres->fetch_assoc()['total_alquileres'];
 
-    $sql_alquileres = "SELECT COUNT(*) as total_alquileres FROM alquileres WHERE negocio_id = '{$_SESSION['negocio']}'";
-$result_alquileres = $conn->query($sql_alquileres);
-$row_alquileres = $result_alquileres->fetch_assoc();
-$total_alquileres = $row_alquileres['total_alquileres'];
-
-    $sql_lavadoras_disponibles = "SELECT COUNT(*) as lavadoras FROM lavadoras WHERE negocio_id = '{$_SESSION['negocio']}' and status = 'disponible'";
+    $sql_lavadoras_disponibles = "SELECT COUNT(*) as lavadoras FROM lavadoras WHERE negocio_id = '$negocio_id' and status = 'disponible'";
     $result_lavadoras_disponibles = $conn->query($sql_lavadoras_disponibles);
-    $row_lavadoras_disponibles = $result_lavadoras_disponibles->fetch_assoc();
-    $total_lavadoras_disponibles = $row_lavadoras_disponibles['lavadoras'];
+    $lavadoras_disponibles = $result_lavadoras_disponibles->fetch_assoc()['lavadoras'];
 
-    $sql_lavadoras = "SELECT COUNT(*) as lavadoras FROM lavadoras WHERE negocio_id = '{$_SESSION['negocio']}'";
+    $sql_lavadoras = "SELECT COUNT(*) as lavadoras FROM lavadoras WHERE negocio_id = '$negocio_id'";
     $result_lavadoras = $conn->query($sql_lavadoras);
-    $row_lavadoras = $result_lavadoras->fetch_assoc();
-    $lavadoras = $row_lavadoras['lavadoras'];
+    $total_lavadoras = $result_lavadoras->fetch_assoc()['lavadoras'];
 
-
+    $sql_ult_alq = "SELECT 
+    alquileres.*, 
+    usuarios.nombre AS cliente_nombre
+    FROM alquileres
+    LEFT JOIN usuarios ON alquileres.user_id = usuarios.id
+    WHERE negocio_id = '$negocio_id'
+    ORDER BY alquileres.id DESC 
+    LIMIT 10";
+    $list_ult_alquileres = $conn->query($sql_ult_alq);
 
     $sql_alquileres_por_mes = "
     SELECT 
         MONTH(fecha_inicio) AS mes, 
         COUNT(*) AS cantidad 
     FROM alquileres 
-    WHERE negocio_id = '{$_SESSION['negocio']}'
+    WHERE negocio_id = '$negocio_id'
     GROUP BY mes
     ORDER BY mes
 ";

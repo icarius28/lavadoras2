@@ -1,5 +1,7 @@
 <?php
-require_once '../modelo/db.php'; // Asegúrate que conecta correctamente
+require_once '../modelo/db.php';
+require_once '../modelo/helpers.php';
+require_once '../modelo/notifications.php';
 $conn = conect();
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -44,78 +46,22 @@ if ($action == 'crear_pago') {
     $estado = $_POST['estado'] ?? 1;
     $id = $_POST['usuario_id'];
 
-    $stmt = $conn->prepare("INSERT INTO pagos (referencia, valor, metodo_pago, estado, id_usuario) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("idsss", $referencia, $monto, $metodo_pago, $estado, $id);
-
+    // Primero actualizar monedero
     $stmt2 = $conn->prepare("UPDATE usuarios SET monedero = monedero + ? WHERE id = ?");
     $stmt2->bind_param("ii", $monto,  $id);
     $stmt2->execute();
     
-    $token = getUserFMC($conn, $id);
-    enviarNotificacionFCM($token, "Recarga", "Se ha realizado una recarga", "", "recarga");
+    // Luego insertar pago - CORREGIDO: tipos correctos sdsii
+    $stmt = $conn->prepare("INSERT INTO pagos (referencia, valor, metodo_pago, estado, id_usuario) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("sdsii", $referencia, $monto, $metodo_pago, $estado, $id);
 
     if ($stmt->execute()) {
+        $token = getUserFCM($conn, $id);
+        enviarNotificacionFCM($token, "Recarga", "Se ha realizado una recarga", "", "recarga");
         echo 'ok';
     } else {
         echo 'error_pago';
     }
-}
-
-
-function getUserFMC($mysqli, $id_usuario) {
-    $id_usuario = intval($id_usuario);
-    if ($id_usuario <= 0) {
-        return null;
-    }
-
-    $sql = "SELECT fcm FROM usuarios WHERE id = $id_usuario LIMIT 1";
-    $result = $mysqli->query($sql);
-
-    if ($result && $row = $result->fetch_assoc()) {
-        return $row['fcm'];
-    }
-
-    return null;
-}
-
-function enviarNotificacionFCM($token, $titulo, $mensaje, $id_servico,$type)
-{
-    $fcm_token = $token;
-    $titulo = $titulo;
-    $mensaje = $mensaje;
-
-    // Ruta hacia tu script de envío de notificación
-    $url = 'https://alquilav.com/firebase/enviar.php';
-
-    // Datos a enviar por POST
-    $data = [
-        'token' => $fcm_token,
-        'titulo' => $titulo,
-        'mensaje' => $mensaje,
-        'id_servicio' => $id_servico,
-        'type' =>$type
-    ];
-
-    // Inicializar cURL
-    $ch = curl_init($url);
-
-    // Configurar opciones
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-    // Ejecutar la solicitud
-    $response = curl_exec($ch);
-
-    // Verificar errores
-    if ($response === false) {
-       // echo 'Error en cURL: ' . curl_error($ch);
-    } else {
-       // echo 'Respuesta de Firebase: ' . $response;
-    }
-
-    curl_close($ch);
-
 }
 
 

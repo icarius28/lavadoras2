@@ -9,12 +9,12 @@ $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 if($page < 1) $page = 1;
 $offset = ($page - 1) * $limit;
 
-// ---- Filtro ----
+// ---- Filtro - SANITIZADO ----
 $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // ---- Query usuarios (si sesión negocio está, filtrar por ese negocio) ----
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
-    $negocio_sesion = $conn->real_escape_string($_SESSION['negocio']);
+    $negocio_sesion = (int) $_SESSION['negocio'];  // Cast a entero
     $sql = "SELECT * FROM usuarios WHERE rol_id IN (3,4) AND conductor_negocio = '$negocio_sesion' AND (nombre LIKE '%$search%' OR correo LIKE '%$search%') LIMIT $limit OFFSET $offset";
     $sql_count = "SELECT COUNT(*) as total FROM usuarios WHERE rol_id IN (3,4) AND conductor_negocio = '$negocio_sesion' AND (nombre LIKE '%$search%' OR correo LIKE '%$search%')";
 } else {
@@ -34,8 +34,10 @@ $proveedores_all = [];
 
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
     $negocio_id = (int)$_SESSION['negocio'];
-    $q = "SELECT * FROM proveedores WHERE estado = 'activo' AND negocio_id = '$negocio_id'";
-    $list_proveedores = $conn->query($q);
+    $stmt = $conn->prepare("SELECT * FROM proveedores WHERE estado = 'activo' AND negocio_id = ?");
+    $stmt->bind_param("i", $negocio_id);
+    $stmt->execute();
+    $list_proveedores = $stmt->get_result();
     // Obtener usuario_id del negocio para tomar_recaudo (como tenías)
     $stmt2 = $conn->prepare("SELECT usuario_id FROM negocios WHERE id = ? LIMIT 1");
     $stmt2->bind_param("i", $negocio_id);

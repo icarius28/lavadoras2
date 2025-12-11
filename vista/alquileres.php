@@ -4,23 +4,22 @@ $limit = 10;  // Número de usuarios por página
 $page = isset($_GET['page']) ? $_GET['page'] : 1;  // Página actual
 $offset = ($page - 1) * $limit;
 
-// Filtro por nombre o correo
-$search = isset($_GET['search']) ? $_GET['search'] : '';
+// Filtro por nombre o correo - SANITIZADO
+$search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Obtener los usuarios filtrados
 $sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE  tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%' LIMIT $limit OFFSET $offset";
 if(isset($_SESSION['negocio']) && $_SESSION['negocio']){
-    $where = " negocio_id = '{$_SESSION['negocio']}' AND ";
-    $sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE $where  (tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%') LIMIT $limit OFFSET $offset";
-
+    $negocio_id = (int) $_SESSION['negocio'];
+    $sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE negocio_id = '$negocio_id' AND (tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%') LIMIT $limit OFFSET $offset";
 }
 $result = $conn->query($sql);
 
 // Contar el total de usuarios para la paginación
 $sql_count = "SELECT COUNT(*) as total FROM alquileres WHERE tiempo_alquiler  LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%'";
 if(isset($_SESSION['negocio']) && $_SESSION['negocio']){
-    $where = " negocio_id = '{$_SESSION['negocio']}' AND ";
-    $sql_count = "SELECT COUNT(*) as total FROM alquileres WHERE $where (tiempo_alquiler  LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%')";
+    $negocio_id = (int) $_SESSION['negocio'];
+    $sql_count = "SELECT COUNT(*) as total FROM alquileres WHERE negocio_id = '$negocio_id' AND (tiempo_alquiler  LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%')";
 }
 $count_result = $conn->query($sql_count);
 $total_users = $count_result->fetch_assoc()['total'];
@@ -28,8 +27,6 @@ $total_pages = ceil($total_users / $limit);
 
 
 
-// Cerrar la conexión
-$conn->close();
 ?>
 <h1>Listado de Alquileres</h1>
 <!-- Filtro de búsqueda -->

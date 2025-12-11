@@ -1,13 +1,19 @@
 <?php
-require_once '../modelo/db.php'; // Asegúrate que conecta correctamente
+require_once '../modelo/db.php';
+require_once '../modelo/helpers.php';
+require_once '../modelo/notifications.php';
 $conn = conect();
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 if ($action == 'obtener_transacciones' && isset($_GET['lavadora_id'])) {
     $lavadora_id = intval($_GET['lavadora_id']);
-    $sql = "SELECT * FROM transacciones WHERE lavadora_id = $lavadora_id ORDER BY fecha DESC";
-    $result = $conn->query($sql);
+    
+    // Usar prepared statement para evitar SQL injection
+    $stmt = $conn->prepare("SELECT * FROM transacciones WHERE lavadora_id = ? ORDER BY fecha DESC");
+    $stmt->bind_param("i", $lavadora_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
     if ($result->num_rows > 0) {
         echo '<table class="table table-bordered">';
@@ -38,6 +44,12 @@ if ($action == 'cambiar_status') {
 }
 
 if ($action == 'asginar') {
+    // Validar que id_user existe
+    if (!isset($_POST['id_user']) || empty($_POST['id_user'])) {
+        echo 'error_id_user';
+        exit;
+    }
+    
     $id = (int) $_POST['id_lavadora_asignar'];
     $id_user = (int) $_POST['id_user'];
     $estado = 'delivery';
@@ -50,7 +62,7 @@ if ($action == 'asginar') {
    $stmt_negocio = $conn->prepare("INSERT INTO transacciones (delivery_id, lavadora_id, tipo) VALUES (?, ?, ?)");
    $stmt_negocio->bind_param("iis", $id_user, $id, $estado2);
    if ($stmt_negocio->execute()) {
-       $token = getUserFMC($conn, $id_user);
+       $token = getUserFCM($conn, $id_user);
   
        enviarNotificacionFCM($token, "asignación", "Se asigno una lavadora", "", "asignacion");
        
@@ -58,7 +70,6 @@ if ($action == 'asginar') {
    } else {
        echo 'error_asignado';
    }
-    echo 'ok';
 }
 
 if ($action == 'devolver') {
@@ -143,62 +154,5 @@ if ($action == 'crear_lavadora') {
         }
     
 }
-
-function getUserFMC($mysqli, $id_usuario) {
-    $id_usuario = intval($id_usuario);
-    if ($id_usuario <= 0) {
-        return null;
-    }
-
-    $sql = "SELECT fcm FROM usuarios WHERE id = $id_usuario LIMIT 1";
-    $result = $mysqli->query($sql);
-
-    if ($result && $row = $result->fetch_assoc()) {
-        return $row['fcm'];
-    }
-
-    return null;
-}
-
-function enviarNotificacionFCM($token, $titulo, $mensaje, $id_servico,$type)
-{
-    $fcm_token = $token;
-    $titulo = $titulo;
-    $mensaje = $mensaje;
-
-    // Ruta hacia tu script de envío de notificación
-    $url = 'https://alquilav.com/firebase/enviar.php';
-
-    // Datos a enviar por POST
-    $data = [
-        'token' => $fcm_token,
-        'titulo' => $titulo,
-        'mensaje' => $mensaje,
-        'id_servicio' => $id_servico,
-        'type' =>$type
-    ];
-
-    // Inicializar cURL
-    $ch = curl_init($url);
-
-    // Configurar opciones
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-    // Ejecutar la solicitud
-    $response = curl_exec($ch);
-
-    // Verificar errores
-    if ($response === false) {
-       // echo 'Error en cURL: ' . curl_error($ch);
-    } else {
-       // echo 'Respuesta de Firebase: ' . $response;
-    }
-
-    curl_close($ch);
-
-}
-
 
 ?>

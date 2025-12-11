@@ -1,5 +1,7 @@
 <?php
-require_once '../modelo/db.php'; // Asegúrate que conecta correctamente
+require_once '../modelo/db.php';
+require_once '../modelo/helpers.php';
+require_once '../modelo/notifications.php';
 $conn = conect();
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -71,13 +73,22 @@ if ($action == 'crear_usuario_app') {
     $plainPassword = generarContrasenaAleatoria(); // genera algo como "A3b8Xz"
     $hashedPassword = password_hash($plainPassword, PASSWORD_DEFAULT);
 
-    $rol_id = 3; // Por ejemplo, rol 4 para un usuario tipo negocio
+    $rol_id = 3; // rol 3 para conductores
 
-    // Insertar usuario
+    // Validar que el email no exista
+    if (email_exists($conn, $correo_usuario)) {
+        echo 'error_correo_duplicado';
+        exit;
+    }
+
+    // Insertar usuario - CORREGIDO: usar $hashedPassword no $contrasena
     $stmt_user = $conn->prepare("INSERT INTO usuarios (nombre, apellido, telefono,  correo, usuario, contrasena, rol_id,conductor_negocio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt_user->bind_param("ssssssii", $nombre_usuario, $apellido_usuario, $telefono_usuario,  $correo_usuario, $usuario_usuario, $contrasena, $rol_id, $negocio);
+    $stmt_user->bind_param("ssssssii", $nombre_usuario, $apellido_usuario, $telefono_usuario,  $correo_usuario, $usuario_usuario, $hashedPassword, $rol_id, $negocio);
     if ($stmt_user->execute()) {
         echo 'ok';
+    } else {
+        echo 'error_crear_usuario';
+        exit;
     }
 
     require '../controllers/mailNewUser.php';
@@ -93,62 +104,5 @@ function generarContrasenaAleatoria($longitud = 6) {
     }
     return $contrasena;
 }
-
-function getUserFMC($mysqli, $id_usuario) {
-    $id_usuario = intval($id_usuario);
-    if ($id_usuario <= 0) {
-        return null;
-    }
-
-    $sql = "SELECT fcm FROM usuarios WHERE id = $id_usuario LIMIT 1";
-    $result = $mysqli->query($sql);
-
-    if ($result && $row = $result->fetch_assoc()) {
-        return $row['fcm'];
-    }
-
-    return null;
-}
-
-function enviarNotificacionFCM($token, $titulo, $mensaje, $id_servico,$type)
-{
-    $fcm_token = $token;
-    $titulo = $titulo;
-    $mensaje = $mensaje;
-
-    // Ruta hacia tu script de envío de notificación
-    $url = 'https://alquilav.com/firebase/enviar.php';
-
-    // Datos a enviar por POST
-    $data = [
-        'token' => $fcm_token,
-        'titulo' => $titulo,
-        'mensaje' => $mensaje,
-        'id_servicio' => $id_servico,
-        'type' =>$type
-    ];
-
-    // Inicializar cURL
-    $ch = curl_init($url);
-
-    // Configurar opciones
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-    // Ejecutar la solicitud
-    $response = curl_exec($ch);
-
-    // Verificar errores
-    if ($response === false) {
-       // echo 'Error en cURL: ' . curl_error($ch);
-    } else {
-       // echo 'Respuesta de Firebase: ' . $response;
-    }
-
-    curl_close($ch);
-
-}
-
 
 ?>

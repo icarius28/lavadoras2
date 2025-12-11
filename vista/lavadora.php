@@ -3,23 +3,22 @@ $limit = 10;  // Número de usuarios por página
 $page = isset($_GET['page']) ? $_GET['page'] : 1;  // Página actual
 $offset = ($page - 1) * $limit;
 
-// Filtro por nombre o correo
-$search = isset($_GET['search']) ? $_GET['search'] : '';
+// Filtro por nombre o correo - SANITIZADO
+$search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Obtener los usuarios filtrados
 $sql = "SELECT * FROM lavadoras WHERE codigo LIKE '%$search%' LIMIT $limit OFFSET $offset";
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
-    $where = " negocio_id = '{$_SESSION['negocio']}' AND ";
-    $sql = "SELECT * FROM lavadoras WHERE $where codigo LIKE '%$search%' LIMIT $limit OFFSET $offset";
+    $negocio_id = (int) $_SESSION['negocio'];
+    $sql = "SELECT * FROM lavadoras WHERE negocio_id = '$negocio_id' AND codigo LIKE '%$search%' LIMIT $limit OFFSET $offset";
 }
 $result = $conn->query($sql);
-
 
 // Contar el total de usuarios para la paginación
 $sql_count = "SELECT COUNT(*) as total FROM lavadoras WHERE codigo LIKE '%$search%' ";
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
-    $where = " negocio_id = '{$_SESSION['negocio']}' AND ";
-    $sql_count = "SELECT COUNT(*) as total FROM lavadoras WHERE $where codigo LIKE '%$search%' ";
+    $negocio_id = (int) $_SESSION['negocio'];
+    $sql_count = "SELECT COUNT(*) as total FROM lavadoras WHERE negocio_id = '$negocio_id' AND codigo LIKE '%$search%' ";
 }
 $count_result = $conn->query($sql_count);
 $total_users = $count_result->fetch_assoc()['total'];
@@ -35,9 +34,14 @@ $tipos_lavadora = [
     'Automática de 24 libras'
 ];
 
+// Inicializar $list_usuarios para evitar undefined variable
+$list_usuarios = [];
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
-    $usuarios  = "SELECT * FROM usuarios where conductor_negocio = '{$_SESSION['negocio']}'";
-    $list_usuarios = $conn->query($usuarios);
+    $negocio_id = (int) $_SESSION['negocio'];
+    $stmt = $conn->prepare("SELECT * FROM usuarios WHERE conductor_negocio = ?");
+    $stmt->bind_param("i", $negocio_id);
+    $stmt->execute();
+    $list_usuarios = $stmt->get_result();
 }
 
 

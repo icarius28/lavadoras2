@@ -6,8 +6,8 @@ $limit = 10;  // Número de usuarios por página
 $page = isset($_GET['page']) ? $_GET['page'] : 1;  // Página actual
 $offset = ($page - 1) * $limit;
 
-// Filtro por nombre o correo
-$search = isset($_GET['search']) ? $_GET['search'] : '';
+// Filtro por nombre o correo - SANITIZADO
+$search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Obtener los usuarios filtrados
 $sql = "SELECT * FROM usuarios WHERE rol_id in (1,2) AND (nombre LIKE '%$search%' OR correo LIKE '%$search%') LIMIT $limit OFFSET $offset";
@@ -19,8 +19,6 @@ $count_result = $conn->query($sql_count);
 $total_users = $count_result->fetch_assoc()['total'];
 $total_pages = ceil($total_users / $limit);
 
-// Cerrar la conexión
-$conn->close();
 
 ?>
 
