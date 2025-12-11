@@ -1,15 +1,2 @@
-[05-Dec-2025 21:50:28 UTC] PHP Warning:  Undefined variable $puntos in /home/alquilav/public_html/vista/map.php on line 41
-[05-Dec-2025 21:50:34 UTC] PHP Warning:  Undefined variable $list_usuarios in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:50:34 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:50:57 UTC] PHP Warning:  Undefined variable $list_usuarios in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:50:57 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:08 UTC] PHP Warning:  Undefined variable $list_usuarios in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:08 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:30 UTC] PHP Warning:  Undefined variable $list_usuarios in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:30 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:39 UTC] PHP Warning:  Undefined variable $list_usuarios in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:39 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:48 UTC] PHP Warning:  Undefined variable $list_usuarios in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:48 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:53 UTC] PHP Warning:  Undefined variable $list_usuarios in /home/alquilav/public_html/vista/lavadora.php on line 250
-[05-Dec-2025 21:51:53 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/alquilav/public_html/vista/lavadora.php on line 250
+[10-Dec-2025 15:20:23 UTC] PHP Warning:  Undefined variable $list_usuarios in /home/alquilav/public_html/vista/lavadora.php on line 250
+[10-Dec-2025 15:20:23 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/alquilav/public_html/vista/lavadora.php on line 250

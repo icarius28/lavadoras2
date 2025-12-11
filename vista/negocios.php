@@ -75,6 +75,7 @@ $total_pages = ceil($total_users / $limit);
                                     <?php } else { ?>
                                         <button class="btn btn-success btn-sm" onclick="cambiarStatus(<?php echo $row['id']; ?>, 1)">Activar</button>
                                     <?php } ?>
+                                    <button class="btn btn-danger btn-sm" onclick="eliminarNegocio(<?php echo $row['id']; ?>)">Eliminar</button>
                                 </td>
                             </tr>
                             <?php } ?>
@@ -392,6 +393,42 @@ function initMapEditar(lat, lng) {
   // Inicializar los campos con valores actuales
   $('#editar_latitud').val(latNum);
   $('#editar_longitud').val(lngNum);
+}
+
+function eliminarNegocio(id) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "¡No podrás revertir esto! Se eliminará el negocio y el usuario asociado.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminarlo',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post('../controllers/negocio_controller.php', {
+                action: 'eliminar_negocio',
+                id: id
+            }, function(response) {
+                if (response === 'ok') {
+                    Swal.fire(
+                        '¡Eliminado!',
+                        'El negocio y el usuario han sido eliminados.',
+                        'success'
+                    ).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire(
+                        'Error',
+                        'Hubo un problema al eliminar el negocio.',
+                        'error'
+                    );
+                }
+            });
+        }
+    })
 }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

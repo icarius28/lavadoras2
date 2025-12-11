@@ -118,5 +118,37 @@ if ($action == 'crear_negocio') {
     }
 }
 
+if ($action == 'eliminar_negocio') {
+    $id = $_POST['id'];
+
+    // 1️⃣ Obtener el usuario_id asociado al negocio
+    $stmt_get_user = $conn->prepare("SELECT usuario_id FROM negocios WHERE id = ?");
+    $stmt_get_user->bind_param("i", $id);
+    $stmt_get_user->execute();
+    $result_user = $stmt_get_user->get_result();
+
+    if ($result_user->num_rows > 0) {
+        $row = $result_user->fetch_assoc();
+        $usuario_id = $row['usuario_id'];
+
+        // 2️⃣ Eliminar el negocio
+        $stmt_delete_negocio = $conn->prepare("DELETE FROM negocios WHERE id = ?");
+        $stmt_delete_negocio->bind_param("i", $id);
+
+        if ($stmt_delete_negocio->execute()) {
+            // 3️⃣ Eliminar el usuario asociado
+            $stmt_delete_user = $conn->prepare("DELETE FROM usuarios WHERE id = ?");
+            $stmt_delete_user->bind_param("i", $usuario_id);
+            $stmt_delete_user->execute();
+
+            echo 'ok';
+        } else {
+            echo 'error_eliminar_negocio';
+        }
+    } else {
+        echo 'error_negocio_no_encontrado';
+    }
+}
+
 
 ?>

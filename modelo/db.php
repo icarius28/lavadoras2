@@ -1,9 +1,9 @@
 <?php
 function conect(){
     $servername = "localhost";  // Cambia estos datos según tu configuración
-    $username = "alquilav_ndb";
-    $password = "&^L1s,)Z_W56";
-    $dbname = "alquilav_ndb";
+    $username = "root";
+    $password = "";
+    $dbname = "lavadora";
     
     $conn = new mysqli($servername, $username, $password, $dbname);
     
