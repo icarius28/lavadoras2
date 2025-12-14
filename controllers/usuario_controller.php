@@ -57,6 +57,13 @@ if ($action == 'editar_usuario') {
     $id = $_POST['id'];
     $nombre = $_POST['nombre'];
     $correo = $_POST['correo'];
+    
+    // Validar que el email no exista (excluyendo el usuario actual)
+    if (email_exists($conn, $correo, $id)) {
+        echo 'error_correo_duplicado';
+        exit;
+    }
+    
     $stmt = $conn->prepare("UPDATE usuarios SET nombre = ?, correo = ? WHERE id = ?");
     $stmt->bind_param("ssi", $nombre, $correo, $id);
     $stmt->execute();

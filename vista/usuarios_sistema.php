@@ -144,10 +144,19 @@ function editarUsuario(id) {
 $('#formEditarUsuario').submit(function(e) {
     e.preventDefault();
     $.post('../controllers/usuario_controller.php', $(this).serialize() + '&action=editar_usuario', function(response) {
+        if (response.trim() === 'error_correo_duplicado') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Correo ya registrado',
+                text: 'El correo electrónico ya está registrado en el sistema. Por favor, utiliza otro correo.',
+            });
+            return;
+        }
         $('#modalEditar').modal('hide');
         location.reload();
     });
 });
-</script>
 
+</script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 

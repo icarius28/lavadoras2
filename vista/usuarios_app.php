@@ -340,6 +340,14 @@ $('#formCrearPago').submit(function(e){
 $('#formEditarUsuario').submit(function(e){
     e.preventDefault();
     $.post('../controllers/usuario_controller.php', $(this).serialize() + '&action=editar_usuario', function(response){
+        if (response.trim() === 'error_correo_duplicado') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Correo ya registrado',
+                text: 'El correo electrónico ya está registrado en el sistema. Por favor, utiliza otro correo.',
+            });
+            return;
+        }
         $('#modalEditar').modal('hide');
         location.reload();
     });
@@ -367,6 +375,14 @@ $('#formCrearNegocio').submit(function(e){
     }
 
     $.post('../controllers/usuario_controller.php', $(this).serialize() + '&action=crear_usuario_app', function(response){
+        if (response.trim() === 'error_correo_duplicado') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Correo ya registrado',
+                text: 'El correo electrónico ya está registrado en el sistema. Por favor, utiliza otro correo.',
+            });
+            return;
+        }
         $('#modalCrear').modal('hide');
         location.reload();
     });
@@ -394,3 +410,4 @@ $('#negocio_select').on('change', function(){
     }
 });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
