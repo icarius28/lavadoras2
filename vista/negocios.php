@@ -263,17 +263,20 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function cambiarStatus(id, nuevoStatus) {
+    showLoading();
     $.post('../controllers/negocio_controller.php', {
         action: 'cambiar_status',
         id: id,
         status: nuevoStatus
     }, function(response) {
-        location.reload();
+        window.location.reload();
     });
 }
 
 function editarNegocio(id) {
+    showLoading('Cargando datos...');
     $.get('../controllers/negocio_controller.php', { action: 'obtener_negocio', id: id }, function(data) {
+        Swal.close();
         const negocio = JSON.parse(data);
         $('#editar_id').val(negocio.id);
         $('#editar_nombre').val(negocio.nombre);
@@ -282,7 +285,7 @@ function editarNegocio(id) {
         $('#editar_ciudad').val(negocio.ciudad);
 
         $('#editar_latitud').val(negocio.latitud);
-    $('#editar_longitud').val(negocio.longitud);
+        $('#editar_longitud').val(negocio.longitud);
     
     // Esperar a que se muestre el modal antes de cargar el mapa
     $('#modalEditar').modal('show');
@@ -296,9 +299,30 @@ function editarNegocio(id) {
 
 $('#formeditarNegocio').submit(function(e) {
     e.preventDefault();
+    
+    const nombre = $('#editar_nombre').val();
+    const direccion = $('#editar_direccion').val();
+    const telefono = $('#editar_telefono').val();
+    const ciudad = $('#editar_ciudad').val();
+
+    if (!validateNotEmpty(nombre)) { showErrorAlert('El nombre es obligatorio'); return; }
+    if (!validateNotEmpty(direccion)) { showErrorAlert('La dirección es obligatoria'); return; }
+    if (!validateNotEmpty(telefono)) { showErrorAlert('El teléfono es obligatorio'); return; }
+    if (!validatePhone(telefono)) { showErrorAlert('El teléfono debe tener 10 dígitos y comenzar con 3'); return; }
+    if (!validateNotEmpty(ciudad)) { showErrorAlert('La ciudad es obligatoria'); return; }
+
+    showLoading();
     $.post('../controllers/negocio_controller.php', $(this).serialize() + '&action=editar_negocio', function(response) {
-        $('#modalEditar').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Actualizado',
+            text: 'Negocio actualizado correctamente',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalEditar').modal('hide');
+            location.reload();
+        });
     });
 });
 
@@ -312,6 +336,37 @@ $('a[href="crear_negocio.php"]').click(function(e) {
 $('#formCrearNegocio').submit(function(e) {
     e.preventDefault();
 
+    // Validaciones
+    // Validaciones - Scoped to this form to avoid Edit modal conflicts
+    const nombre = $('#formCrearNegocio input[name="nombre"]').val();
+    const direccion = $('#formCrearNegocio input[name="direccion"]').val();
+    const telefono = $('#formCrearNegocio input[name="telefono"]').val();
+    const ciudad = $('#formCrearNegocio input[name="ciudad"]').val();
+    
+    // Usuario validation
+    const uNombre = $('#formCrearNegocio input[name="usuario_nombre"]').val();
+    const uApellido = $('#formCrearNegocio input[name="usuario_apellido"]').val();
+    const uTelefono = $('#formCrearNegocio input[name="usuario_telefono"]').val();
+    const uCorreo = $('#formCrearNegocio input[name="usuario_correo"]').val();
+    const uUsuario = $('#formCrearNegocio input[name="usuario_usuario"]').val();
+    const uPass = $('#formCrearNegocio input[name="contrasena"]').val();
+
+    if (!validateNotEmpty(nombre)) { showErrorAlert('Nombre del negocio obligatorio'); return; }
+    if (!validateNotEmpty(direccion)) { showErrorAlert('Dirección obligatoria'); return; }
+    if (!validateNotEmpty(telefono)) { showErrorAlert('Teléfono del negocio obligatorio'); return; }
+    if (!validatePhone(telefono)) { showErrorAlert('Teléfono negocio: 10 dígitos, inicia con 3'); return; }
+    if (!validateNotEmpty(ciudad)) { showErrorAlert('Ciudad obligatoria'); return; }
+
+    if (!validateNotEmpty(uNombre)) { showErrorAlert('Nombre usuario obligatorio'); return; }
+    if (!validateNotEmpty(uApellido)) { showErrorAlert('Apellido usuario obligatorio'); return; }
+    if (!validateNotEmpty(uTelefono)) { showErrorAlert('Teléfono usuario obligatorio'); return; }
+    if (!validatePhone(uTelefono)) { showErrorAlert('Teléfono usuario: 10 dígitos, inicia con 3'); return; }
+    if (!validateNotEmpty(uCorreo)) { showErrorAlert('Correo usuario obligatorio'); return; }
+    if (!validateEmail(uCorreo)) { showErrorAlert('Correo inválido'); return; }
+    if (!validateNotEmpty(uUsuario)) { showErrorAlert('Usuario obligatorio'); return; }
+    if (!validateNotEmpty(uPass)) { showErrorAlert('Contraseña obligatoria'); return; }
+
+    showLoading();
     $.post('../controllers/negocio_controller.php', 
         $(this).serialize() + '&action=crear_negocio', 
         function(response) {
@@ -407,6 +462,7 @@ function eliminarNegocio(id) {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
+            showLoading('Eliminando...');
             $.post('../controllers/negocio_controller.php', {
                 action: 'eliminar_negocio',
                 id: id
@@ -431,4 +487,3 @@ function eliminarNegocio(id) {
     })
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

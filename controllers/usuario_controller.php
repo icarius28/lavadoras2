@@ -15,6 +15,32 @@ if ($action == 'cambiar_status') {
     echo 'ok';
 }
 
+if ($action == 'eliminar_usuario') {
+    $id = $_POST['id'];
+    
+    // Obtener correo actual para renombrarlo
+    $stmt_get = $conn->prepare("SELECT correo FROM usuarios WHERE id = ?");
+    $stmt_get->bind_param("i", $id);
+    $stmt_get->execute();
+    $res = $stmt_get->get_result()->fetch_assoc();
+    
+    if ($res) {
+        $correo_actual = $res['correo'];
+        $nuevo_correo = $correo_actual . '_deleted_' . time(); // liberar correo
+        
+        $stmt = $conn->prepare("UPDATE usuarios SET status = 99, correo = ? WHERE id = ?");
+        $stmt->bind_param("si", $nuevo_correo, $id);
+        
+        if ($stmt->execute()) {
+            echo 'ok';
+        } else {
+            echo 'error';
+        }
+    } else {
+        echo 'error';
+    }
+}
+
 if ($action == 'tomar_recaudo') {
     $id = $_POST['id'];             // ID del conductor
     $monedero = $_POST['monedero']; // Valor a transferir

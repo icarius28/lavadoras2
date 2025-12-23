@@ -10,7 +10,7 @@ $offset = ($page - 1) * $limit;
 $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Obtener los usuarios filtrados
-$sql = "SELECT * FROM usuarios WHERE rol_id in (1,2) AND (nombre LIKE '%$search%' OR correo LIKE '%$search%') LIMIT $limit OFFSET $offset";
+$sql = "SELECT * FROM usuarios WHERE rol_id in (1,2) AND (nombre LIKE '%$search%' OR correo LIKE '%$search%') ORDER BY id ASC LIMIT $limit OFFSET $offset";
 $result = $conn->query($sql);
 
 // Contar el total de usuarios para la paginación
@@ -122,17 +122,20 @@ $total_pages = ceil($total_users / $limit);
 <script>
 
 function cambiarStatus(id, nuevoStatus) {
+    showLoading();
     $.post('../controllers/usuario_controller.php', {
         action: 'cambiar_status',
         id: id,
         status: nuevoStatus
     }, function(response) {
-        location.reload();
+        window.location.reload();
     });
 }
 
 function editarUsuario(id) {
+    showLoading('Cargando usuario...');
     $.get('../controllers/usuario_controller.php', { action: 'obtener_usuario', id: id }, function(data) {
+        Swal.close();
         const usuario = JSON.parse(data);
         $('#editar_id').val(usuario.id);
         $('#editar_nombre').val(usuario.nombre);
@@ -143,6 +146,14 @@ function editarUsuario(id) {
 
 $('#formEditarUsuario').submit(function(e) {
     e.preventDefault();
+    const nombre = $('#editar_nombre').val();
+    const correo = $('#editar_correo').val();
+
+    if (!validateNotEmpty(nombre)) { showErrorAlert('El nombre es obligatorio'); return; }
+    if (!validateNotEmpty(correo)) { showErrorAlert('El correo es obligatorio'); return; }
+    if (!validateEmail(correo)) { showErrorAlert('Correo inválido'); return; }
+
+    showLoading();
     $.post('../controllers/usuario_controller.php', $(this).serialize() + '&action=editar_usuario', function(response) {
         if (response.trim() === 'error_correo_duplicado') {
             Swal.fire({
@@ -152,11 +163,18 @@ $('#formEditarUsuario').submit(function(e) {
             });
             return;
         }
-        $('#modalEditar').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Usuario actualizado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalEditar').modal('hide');
+            location.reload();
+        });
     });
 });
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 

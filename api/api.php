@@ -3,9 +3,9 @@ header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
 $host = "localhost";
-$user = "alquilav_ndb";
-$password = "&^L1s,)Z_W56";
-$dbname = "alquilav_ndb";
+$user = "root";
+$password = "";
+$dbname = "lavadora";
 
 
 $mysqli = new mysqli($host, $user, $password, $dbname);
@@ -183,6 +183,21 @@ switch ($action) {
     
     case 'lavadoras_de_negocio':
         lavadoras_de_negocio($mysqli, $data);
+    break;
+    case 'get_notificaciones':
+        get_notificaciones($mysqli, $data);
+    break;
+    case 'registrar_notificacion':
+        registrar_notificacion($mysqli, $data);
+    break;
+    case 'get_notificaciones_usuario':
+        get_notificaciones_usuario($mysqli, $data);
+    break;
+    case 'marcar_notificacion_leida':
+        marcar_notificacion_leida($mysqli, $data);
+    break;
+    case 'get_servicios_cercanos':
+        get_servicios_cercanos($mysqli, $data);
     break;
     default:
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida']);
@@ -1109,49 +1124,92 @@ function entregar_servicio($mysqli, $data) {
 
 function aceptar_servicio($mysqli, $data) {
     global $porcentaje;
-    $user_id = $data['user_id'] ?? 0;
-    $id_alquiler = $data['id_alquiler'] ?? null;
+    $user_id = intval($data['user_id'] ?? 0); // Este es el conductor
+    $id_alquiler = intval($data['id_alquiler'] ?? 0);
 
-
-    if (!$user_id || $id_alquiler === null ) {
+    if (!$user_id || !$id_alquiler) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
         return;
     }
+
+    // 1. Obtener información del domiciliario (incluyendo negocio)
+    $sqlDomiciliario = "SELECT conductor_negocio, nombre, apellido FROM usuarios WHERE id = $user_id LIMIT 1";
+    $resDomiciliario = $mysqli->query($sqlDomiciliario);
     
-    
-       $sql = "
-        SELECT 
-            total
-        FROM alquileres
-
-        WHERE alquileres.id = $id_alquiler
-        
-        LIMIT 1
-    ";
-
-$result = $mysqli->query($sql);
-if ($result && $row = $result->fetch_assoc()) {
-    $total = $row['total'];
-} else {
-    echo json_encode(['status' => 'error', 'message' => 'Alquiler no encontrado']);
-    return;
-}
-
-
-
-    // Hora actual del servidor
-    $fecha_actual = date('Y-m-d H:i:s');
-
-    $stmt = $mysqli->prepare("UPDATE alquileres SET conductor_id = ?, fecha_aceptado = ?  WHERE id = ?");
-    $stmt->bind_param("isi", $user_id, $fecha_actual, $id_alquiler);
-
-    if ($stmt->execute()) {
-        echo json_encode(['status' => 'ok', 'message' => 'Servicio aceptado']);
-    } else {
-        echo json_encode(['status' => 'error', 'message' => 'Error al aceptar']);
+    if(!$resDomiciliario || $resDomiciliario->num_rows === 0){
+        echo json_encode(['status' => 'error', 'message' => 'Domiciliario no encontrado']);
+        return;
     }
+    
+    $domiciliario = $resDomiciliario->fetch_assoc();
+    $negocio_domiciliario = $domiciliario['conductor_negocio'];
+    $nombre_domiciliario = $domiciliario['nombre'] . ' ' . $domiciliario['apellido'];
 
-    $stmt->close();
+    // 2. Verificar el alquiler
+    $sqlAlquiler = "SELECT * FROM alquileres WHERE id = $id_alquiler AND status_servicio = 1 LIMIT 1";
+    $resAlquiler = $mysqli->query($sqlAlquiler);
+    
+    if($resAlquiler && $alquiler = $resAlquiler->fetch_assoc()){
+        // Verificar tipo
+        $tipoNecesario = $alquiler['tipo_lavadora']; 
+        
+        // 3. Verificar que el conductor tenga una lavadora disponible de ese tipo
+        $sqlLav = "SELECT id, codigo FROM lavadoras 
+                   WHERE id_domiciliario = $user_id 
+                   AND type = '$tipoNecesario' 
+                   AND status = 'disponible' 
+                   LIMIT 1";
+                   
+        $resLav = $mysqli->query($sqlLav);
+        
+        if($resLav && $lav = $resLav->fetch_assoc()){
+            $idLavadoraAsignar = $lav['id'];
+            $codigoLavadora = $lav['codigo'];
+            
+            // 4. Proceder a asignar
+            $fecha_actual = date('Y-m-d H:i:s');
+            
+            // Update Alquiler
+            $stmt = $mysqli->prepare("UPDATE alquileres SET conductor_id = ?, lavadora_id = ?, fecha_aceptado = ?, status_servicio = 2 WHERE id = ?");
+            $stmt->bind_param("iisi", $user_id, $idLavadoraAsignar, $fecha_actual, $id_alquiler);
+            
+            if ($stmt->execute()) {
+                // Update Lavadora status
+                $mysqli->query("UPDATE lavadoras SET status = 'alquilada' WHERE id = $idLavadoraAsignar");
+                
+                // Obtener información del negocio
+                $sqlNegocio = "SELECT nombre, telefono, direccion FROM negocios WHERE id = $negocio_domiciliario LIMIT 1";
+                $resNegocio = $mysqli->query($sqlNegocio);
+                $negocio = $resNegocio ? $resNegocio->fetch_assoc() : null;
+                
+                // Notificar al cliente
+                $token = getFMCByServicio($mysqli, $id_alquiler, 'usuario');
+                if ($token) {
+                    enviarNotificacionFCM($token, "Servicio Aceptado", "$nombre_domiciliario va en camino", $id_alquiler, 'update_rental');
+                }
+                
+                echo json_encode([
+                    'status' => 'ok', 
+                    'message' => 'Servicio aceptado correctamente',
+                    'data' => [
+                        'id_alquiler' => $id_alquiler,
+                        'lavadora_id' => $idLavadoraAsignar,
+                        'codigo_lavadora' => $codigoLavadora,
+                        'fecha_aceptado' => $fecha_actual,
+                        'negocio' => $negocio
+                    ]
+                ]);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Error al actualizar servicio']);
+            }
+            $stmt->close();
+            
+        } else {
+             echo json_encode(['status' => 'error', 'message' => 'No tienes lavadoras disponibles de tipo: ' . $tipoNecesario]);
+        }
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Servicio no encontrado o ya tomado']);
+    }
 }
 
 function calcularPorcentaje($valor, $porcentaje) {
@@ -1176,18 +1234,30 @@ function get_servicio_solicitud_domicialiario($mysqli, $data) {
     $row = $result->fetch_assoc();
     $conductor_negocio = $row['conductor_negocio'];
 
-    // Buscar si tiene un servicio activo con status_servicio = 1
-    $query = $mysqli->query("SELECT * FROM alquileres WHERE negocio_id = $conductor_negocio AND conductor_id != $user_id AND status_servicio = 1 AND status = 'activo' LIMIT 1");
+    // MARKETPLACE: Buscar TODOS los servicios pendientes (status_servicio=1) de mi negocio
+    // Y que NO tengan conductor asignado (conductor_id=0 o NULL)
+    // Opcional: Filtrar cercanos si se desea, por ahora todos los del negocio.
+    
+    $query = $mysqli->query("SELECT alquileres.*, usuarios.nombre AS nombre_cliente, usuarios.direccion AS direccion_cliente, usuarios.telefono AS telefono_cliente
+                             FROM alquileres 
+                             JOIN usuarios ON alquileres.user_id = usuarios.id
+                             WHERE alquileres.negocio_id = $conductor_negocio 
+                             AND alquileres.status_servicio = 1 
+                             AND (alquileres.conductor_id = 0 OR alquileres.conductor_id IS NULL)
+                             ORDER BY alquileres.fecha_inicio DESC");
 
-    if ($query && $query->num_rows > 0) {
-        $servicio = $query->fetch_assoc();
+    $servicios = [];
+    while($item = $query->fetch_assoc()){
+        $servicios[] = $item;
+    }
 
+    if (count($servicios) > 0) {
         echo json_encode([
             'status' => 'ok',
-            'servicio' => $servicio
+            'servicios' => $servicios // Devuelve ARRAY de servicios, no solo uno
         ]);
     } else {
-        echo json_encode(['status' => 'ok', 'servicio' => null]);
+        echo json_encode(['status' => 'ok', 'servicios' => []]);
     }
 }
 
@@ -1213,6 +1283,11 @@ function get_detail_service($mysqli, $data) {
             u_cliente.nombre AS nombre,
             u_cliente.direccion AS direccion,
             u_cliente.telefono AS telefono,
+            alquileres.status,
+            alquileres.fecha_inicio,
+            alquileres.fecha_fin,
+            alquileres.fecha_aceptado,
+            alquileres.status_servicio,
             lavadoras.*,
             alquileres.conductor_id
         FROM alquileres
@@ -1220,7 +1295,7 @@ function get_detail_service($mysqli, $data) {
         LEFT JOIN usuarios AS u_delivery ON $user_id = u_delivery.id
         JOIN lavadoras ON alquileres.lavadora_id = lavadoras.id
         WHERE alquileres.id = $id_alquiler
-          AND alquileres.status = 'activo'
+
         LIMIT 1
     ";
 
@@ -1240,7 +1315,7 @@ function get_detail_service($mysqli, $data) {
 }
 
 function update_ubicacion_domiciliario($mysqli, $data) {
-    $user_id = $data['user_id'] ?? 0;
+    $user_id = $data['id_usuario'] ?? 0;
     $latitud = $data['latitud'] ?? null;
     $longitud = $data['longitud'] ?? null;
 
@@ -1485,42 +1560,56 @@ function rent_machine($mysqli, $data) {
  
     if ($lavadora = $result->fetch_assoc() || isset($data['id_lavadora'])) {
         
+        // MARKETPLACE LOGIC
+        // 1. Determinar ID Negocio (Si no viene id_lavadora, usamos el del primer resultado cercano o el seleccionado)
         if(isset($data['id_lavadora'])){
-            $result = $mysqli->query("SELECT * FROM lavadoras WHERE status = 'disponible' AND id =".$data['id_lavadora']);
-     
-            $lavadora = $result->fetch_assoc();
+            $idLav = intval($data['id_lavadora']);
+            // Obtener datos de la lavadora específica
+            $resultLav = $mysqli->query("SELECT * FROM lavadoras WHERE id = $idLav LIMIT 1");
+            if($resultLav && $lavadoraEspecifica = $resultLav->fetch_assoc()){
+                $lavadora = $lavadoraEspecifica;
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Lavadora no encontrada']);
+                return;
+            }
         }
+        
+        // Usamos los datos de $lavadora para obtener el tipo
+        $tipo_lavadora_req = $lavadora['type']; // Tipo detectado
 
-        $lavadoraId = $lavadora['id'];
-        $negocio = $lavadora['negocio_id'];
         $metodo = $data['payment_method'];
         $total_amount = $data['total_amount'];
 
+        // Obtener tarifa global (sin depender del negocio)
+        $tarifa = $global_tarifa;
 
-        $result = $mysqli->query("SELECT * FROM config WHERE id_negocio = $negocio LIMIT 1");
-        $config = $result->fetch_assoc();
-        $tarifa =  $global_tarifa;
-        if ($config) {
-            $tarifa = $config['tarifa'];
-        }
+        // NO asignamos lavadora_id aun (NULL). NO asignamos conductor (0).
+        // NO asignamos negocio (NULL) - el negocio no es relevante para el marketplace
         
-      
-
-        $mysqli->query("UPDATE lavadoras SET status = 'alquilada' WHERE id = $lavadoraId");
-        $mensaje = "Se registro nuevo alquiler";
-        $notify = "INSERT INTO notificaciones (mensaje, negocio)
-                  VALUES ('$mensaje', $negocio)";
-        $mysqli->query($notify);
-        $query = "INSERT INTO alquileres (user_id, lavadora_id, tiempo_alquiler, status, fecha_inicio, latitud, longitud, valor_servicio, negocio_id, metodo_pago, total)
-                  VALUES ($userId, $lavadoraId, $tiempo, 'activo', NOW(), '$latitud', '$longitud', $tarifa, $negocio, '$metodo', $total_amount)";
+        $mensaje = "Nuevo servicio disponible: " . $tipo_lavadora_req;
+        
+        // Insert Alquiler con lavadora_id = NULL y negocio_id = NULL
+        $query = "INSERT INTO alquileres (user_id, lavadora_id, tipo_lavadora, tiempo_alquiler, status, fecha_inicio, latitud, longitud, valor_servicio, negocio_id, metodo_pago, total, status_servicio, conductor_id)
+                  VALUES ($userId, NULL, '$tipo_lavadora_req', $tiempo, 'activo', NOW(), '$latitud', '$longitud', $tarifa, NULL, '$metodo', $total_amount, 1, 0)";
 
         if ($mysqli->query($query)) {
-            echo json_encode(['status' => 'ok', 'lavadora_id' => $lavadoraId]);
+            $newRentalId = $mysqli->insert_id;
+            
+            // Notificar a TODOS los conductores activos (sin filtrar por negocio)
+            $sqlDrivers = "SELECT fcm FROM usuarios WHERE rol_id = 3 AND fcm IS NOT NULL AND fcm != ''";
+            $resDrivers = $mysqli->query($sqlDrivers);
+            while($driver = $resDrivers->fetch_assoc()){
+                if(!empty($driver['fcm'])){
+                    enviarNotificacionFCM($driver['fcm'], "Nuevo Servicio", "Hay un nuevo servicio disponible cerca.", $newRentalId, 'new_service_available');
+                }
+            }
+
+            echo json_encode(['status' => 'ok', 'lavadora_id' => 0, 'rental_id' => $newRentalId, 'message' => 'Solicitud creada, esperando conductor']);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al realizar alquiler']);
+            echo json_encode(['status' => 'error', 'message' => 'Error al realizar alquiler: ' . $mysqli->error]);
         }
     } else {
-        echo json_encode(['status' => 'error', 'message' => 'No hay lavadoras disponibles']);
+        echo json_encode(['status' => 'error', 'message' => 'No hay cobertura o lavadoras disponibles']);
     }
 }
 
@@ -1570,6 +1659,7 @@ function sum_rent_machine($mysqli, $data) {
 
 
 function finish_rental($mysqli, $data) {
+    global $config_general;
     $rentalId = intval($data['rental_id'] ?? 0);
 
     if ($rentalId == 0) {
@@ -1577,21 +1667,46 @@ function finish_rental($mysqli, $data) {
         return;
     }
 
-    $result = $mysqli->query("SELECT lavadora_id FROM alquileres WHERE id = $rentalId AND status = 'activo' LIMIT 1");
+    $result = $mysqli->query("SELECT lavadora_id, conductor_id, total FROM alquileres WHERE id = $rentalId AND status = 'activo' LIMIT 1");
 
-        $token = getFMCByServicio($mysqli, $rentalId, $tipo = 'domiciliario');
+    $token = getFMCByServicio($mysqli, $rentalId, $tipo = 'domiciliario');
     
-        if ($token) {
-            enviarNotificacionFCM($token, "Actualización de servicio", "Servicio finalizado, pendiente de recogida", $rentalId, 'update_rental');
-        }
+    if ($token) {
+        enviarNotificacionFCM($token, "Actualización de servicio", "Servicio finalizado, pendiente de recogida", $rentalId, 'update_rental');
+    }
 
     if ($rental = $result->fetch_assoc()) {
         $lavadoraId = $rental['lavadora_id'];
+        $conductorId = $rental['conductor_id'];
+        $totalServicio = floatval($rental['total']);
 
+        // Calcular comisión
+        $porcentaje = floatval($config_general['porcentaje'] ?? 0);
+        $comision = ($totalServicio * $porcentaje) / 100;
+
+        // Descontar del monedero del domiciliario
+        if ($conductorId > 0 && $comision > 0) {
+            $updateMonedero = $mysqli->query("UPDATE usuarios SET monedero = monedero - $comision WHERE id = $conductorId");
+            
+            if (!$updateMonedero) {
+                echo json_encode([
+                    'status' => 'error', 
+                    'message' => 'Error al descontar comisión del monedero'
+                ]);
+                return;
+            }
+        }
+
+        // Actualizar lavadora y alquiler
         $mysqli->query("UPDATE lavadoras SET status = 'disponible' WHERE id = $lavadoraId");
         $mysqli->query("UPDATE alquileres SET status = 'finalizado', status_servicio = 3, fecha_fin = NOW() WHERE id = $rentalId");
 
-        echo json_encode(['status' => 'ok']);
+        echo json_encode([
+            'status' => 'ok',
+            'message' => 'Servicio finalizado',
+            'comision_descontada' => $comision,
+            'porcentaje_aplicado' => $porcentaje
+        ]);
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Alquiler no encontrado o ya finalizado']);
     }
@@ -1624,7 +1739,7 @@ function get_rental($mysqli, $data) {
 function get_rental_all($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
 
-    $result = $mysqli->query("SELECT * FROM alquileres WHERE user_id = $userId AND status = 'finalizado'");
+    $result = $mysqli->query("SELECT * FROM alquileres WHERE user_id = $userId ");
 
     $rentals = [];
     while ($rental = $result->fetch_assoc()) {
@@ -1642,18 +1757,63 @@ function get_rental_all($mysqli, $data) {
 function lavadoras_asignadas($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
 
-    $result = $mysqli->query("SELECT lavadoras.*, precios_lavado.precio from lavadoras, precios_lavado where lavadoras.negocio_id = precios_lavado.id_negocio and lavadoras.type = precios_lavado.tipo_lavadora and tipo_servicio='normal' and $userId = lavadoras.id_domiciliario");
+    if ($userId <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
+        return;
+    }
+
+    // Obtener TODAS las lavadoras asignadas al domiciliario (disponibles y alquiladas)
+    // Usar prepared statement para evitar SQL injection
+    $stmt = $mysqli->prepare("
+        SELECT 
+            lavadoras.id,
+            lavadoras.codigo,
+            lavadoras.status,
+            lavadoras.negocio_id,
+            lavadoras.fecha,
+            lavadoras.type,
+            lavadoras.en,
+            lavadoras.id_domiciliario,
+            precios_lavado.precio,
+            CASE 
+                WHEN lavadoras.status = 'alquilada' THEN 
+                    (SELECT CONCAT(u.nombre, ' ', u.apellido) 
+                     FROM alquileres a 
+                     JOIN usuarios u ON a.user_id = u.id 
+                     WHERE a.lavadora_id = lavadoras.id 
+                     AND a.status_servicio IN (1,2,3) 
+                     LIMIT 1)
+                ELSE NULL
+            END as cliente_actual
+        FROM lavadoras 
+        INNER JOIN precios_lavado ON lavadoras.negocio_id = precios_lavado.id_negocio 
+            AND lavadoras.type = precios_lavado.tipo_lavadora 
+        WHERE precios_lavado.tipo_servicio = 'normal' 
+            AND lavadoras.id_domiciliario = ?
+        ORDER BY lavadoras.status ASC, lavadoras.id ASC
+    ");
+    
+    if (!$stmt) {
+        echo json_encode(['status' => 'error', 'message' => 'Error en la consulta']);
+        return;
+    }
+
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
     $asings = [];
     while ($asing = $result->fetch_assoc()) {
-        $asings[] = $asing;  // Añade cada alquiler a la lista de rentals
+        $asings[] = $asing;
     }
 
     if (count($asings) > 0) {
-        echo json_encode(['status' => 'ok', 'asignadas' => $asings]);  // Devuelve la lista de alquileres
+        echo json_encode(['status' => 'ok', 'asignadas' => $asings]);
     } else {
-        echo json_encode(['status' => 'error', 'message' => 'No hay lavadoras asignadas']);
+        echo json_encode(['status' => 'ok', 'asignadas' => []]);
     }
+
+    $stmt->close();
 }
 
 
@@ -1684,124 +1844,134 @@ function available_machines($mysqli, $data) {
     $latitud = floatval($data['latitud'] ?? 0);
     $longitud = floatval($data['longitud'] ?? 0);
 
-  if ($latitud == 0 || $longitud == 0) {
-        echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
+    if ($latitud == 0 || $longitud == 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Ubicación requerida']);
         return;
     }
 
-   $tipos_lavadora = [
-    'Manual doble tina sin bomba',
-    'Manual doble tina con bomba',
-    'Automática de 18 libras',
-    'Automática de 24 libras'
-];
+    $tipos_lavadora = [
+        'Manual doble tina sin bomba',
+        'Manual doble tina con bomba',
+        'Automática de 18 libras',
+        'Automática de 24 libras'
+    ];
 
-$response = [];
+    $response = ['status' => 'ok', 'data' => []];
 
-$tipos_lavadora = [
-    'Manual doble tina sin bomba',
-    'Manual doble tina con bomba',
-    'Automática de 18 libras',
-    'Automática de 24 libras'
-];
-
-$response = ['status' => 'ok', 'data' => []];
-
-foreach ($tipos_lavadora as $tipo) {
-    // Buscar lavadoras disponibles de ese tipo
-    $query = "SELECT lavadoras.*, usuarios.latitud, usuarios.longitud,  usuarios.monedero FROM lavadoras
-    JOIN usuarios ON lavadoras.id_domiciliario = usuarios.id
-     WHERE lavadoras.status = 'disponible' AND lavadoras.type = '$tipo'";
-    $result = $mysqli->query($query);
-    $disponibles = $result->num_rows;
-
-    $lavadora = $result->fetch_assoc(); // Tomamos la primera lavadora como ejemplo
-
-    if ($lavadora) {
-        $id_negocio = $lavadora['negocio_id'];
-        $id_lavadora = $lavadora['id'];
-
-        // Obtener todas las tarifas para este tipo de lavadora y negocio
-        $tarifas_query = "SELECT tipo_servicio, precio FROM precios_lavado 
-                          WHERE tipo_lavadora = '$tipo' AND id_negocio = $id_negocio";
-        $tarifas_result = $mysqli->query($tarifas_query);
-
-        $tarifas = [
+    foreach ($tipos_lavadora as $tipo) {
+        $countDisponibles = 0;
+        $ejemploLavadora = null;
+        $tarifasEncontradas = [
             'normal' => 0,
             '24horas' => 0,
             'nocturno' => 0
         ];
-        $is_in_range = estaDentroDelRango($latitud, $longitud, $lavadora['latitud'], $lavadora['longitud'], $km);
-       
-        if ($is_in_range and $lavadora['monedero'] >=  $valor_minimo) {
-            $tarifas['normal'] = $global_tarifa;
-     
-        while ($row = $tarifas_result->fetch_assoc()) {
-            $tipo_servicio = $row['tipo_servicio'];
-            $tarifas[$tipo_servicio] = (float)$row['precio'];
+
+        // Buscar TODAS las lavadoras disponibles de ese tipo
+        $query = "SELECT lavadoras.*, usuarios.latitud, usuarios.longitud, usuarios.monedero 
+                  FROM lavadoras
+                  JOIN usuarios ON lavadoras.id_domiciliario = usuarios.id
+                  WHERE lavadoras.status = 'disponible' AND lavadoras.type = '$tipo'";
+        
+        $result = $mysqli->query($query);
+        
+        // Iterar sobre todas las lavadoras candidatas
+        while ($lav = $result->fetch_assoc()) {
+            // Verificar rango y monedero
+            $is_in_range = estaDentroDelRango($latitud, $longitud, $lav['latitud'], $lav['longitud'], $km);
+            
+            if ($is_in_range && $lav['monedero'] >= $valor_minimo) {
+                // Es válida
+                $countDisponibles++;
+                
+                // Guardamos la primera válida como ejemplo para devolver ID y Precios
+                if ($ejemploLavadora === null) {
+                    $ejemploLavadora = $lav;
+                    
+                    // Cargar tarifas del negocio de esta lavadora
+                    $id_negocio = $lav['negocio_id'];
+                    $tarifas_query = "SELECT tipo_servicio, precio FROM precios_lavado 
+                                      WHERE tipo_lavadora = '$tipo' AND id_negocio = $id_negocio";
+                    $tarifas_result = $mysqli->query($tarifas_query);
+                    
+                    // Tarifa base global por defecto
+                    $tarifasEncontradas['normal'] = $global_tarifa;
+                    
+                    while ($t = $tarifas_result->fetch_assoc()) {
+                        $tarifasEncontradas[$t['tipo_servicio']] = (float)$t['precio'];
+                    }
+                }
+            }
         }
 
-        $response['data'][] = [
-            'type' => $tipo,
-            'disponibles' => $disponibles,
-            'id_lavadora' => (int)$id_lavadora,
-            'tarifas' => $tarifas
-        ];
-    }else{
-
-  $response['data'][] = [
-            'type' => $tipo,
-            'disponibles' => 0,
-            'id_lavadora' => 0,
-            'tarifas' => [
-                'normal' => 0,
-                '24horas' => 0,
-                'nocturno' => 0
-            ]
-        ];
-
+        // Armar respuesta para este tipo
+        if ($countDisponibles > 0 && $ejemploLavadora) {
+            $response['data'][] = [
+                'type' => $tipo,
+                'disponibles' => $countDisponibles,
+                'id_lavadora' => (int)$ejemploLavadora['id'], // ID de una de las disponibles
+                'tarifas' => $tarifasEncontradas
+            ];
+        } else {
+            $response['data'][] = [
+                'type' => $tipo,
+                'disponibles' => 0,
+                'id_lavadora' => 0,
+                'tarifas' => [
+                    'normal' => 0,
+                    '24horas' => 0,
+                    'nocturno' => 0
+                ]
+            ];
+        }
     }
-    } else {
-        $response['data'][] = [
-            'type' => $tipo,
-            'disponibles' => 0,
-            'id_lavadora' => 0,
-            'tarifas' => [
-                'normal' => 0,
-                '24horas' => 0,
-                'nocturno' => 0
-            ]
-        ];
-    }
-}
 
-header('Content-Type: application/json');
-echo json_encode($response);
-return $response;
+    echo json_encode($response);
 }
 
 function estaDentroDelRango($lat1, $lon1, $lat2, $lon2, $km_maximo) {
-    $radioTierra = 6371; // Radio de la Tierra en kilómetros
+
+    $radioTierra = 6371; // km
+
+    // Convertir a float
+    $lat1 = floatval($lat1);
+    $lon1 = floatval($lon1);
+    $lat2 = floatval($lat2);
+    $lon2 = floatval($lon2);
+    $km_maximo = floatval($km_maximo);
+
+    //  echo "<strong>📌 Coordenadas:</strong><br>";
+    // echo "Origen → Lat: {$lat1}, Lon: {$lon1}<br>";
+    // echo "Destino → Lat: {$lat2}, Lon: {$lon2}<br><br>";
 
     // Convertir grados a radianes
-    $lat1 = deg2rad($lat1);
-    $lon1 = deg2rad($lon1);
-    $lat2 = deg2rad($lat2);
-    $lon2 = deg2rad($lon2);
+    $lat1Rad = deg2rad($lat1);
+    $lon1Rad = deg2rad($lon1);
+    $lat2Rad = deg2rad($lat2);
+    $lon2Rad = deg2rad($lon2);
 
-    // Fórmula de Haversine
-    $difLat = $lat2 - $lat1;
-    $difLon = $lon2 - $lon1;
+    // Haversine
+    $difLat = $lat2Rad - $lat1Rad;
+    $difLon = $lon2Rad - $lon1Rad;
 
     $a = sin($difLat / 2) * sin($difLat / 2) +
-         cos($lat1) * cos($lat2) *
+         cos($lat1Rad) * cos($lat2Rad) *
          sin($difLon / 2) * sin($difLon / 2);
 
     $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
     $distancia = $radioTierra * $c;
 
-    // Retorna true si está dentro del rango
-    return $distancia <= $km_maximo;
+    // echo "<strong>📏 Cálculo:</strong><br>";
+    // echo "Distancia: " . round($distancia, 3) . " km<br>";
+    // echo "Rango máximo: {$km_maximo} km<br><br>";
+
+    if ($distancia <= $km_maximo) {
+        //  echo "✅ <strong>RESULTADO:</strong> DENTRO del rango<br>";
+        return true;
+    } else {
+        //     echo "❌ <strong>RESULTADO:</strong> FUERA del rango<br>";
+        return false;
+    }
 }
 
 function get_ubication_domicialiario($mysqli, $data) {
@@ -1907,6 +2077,338 @@ function enviarNotificacionFCM($token, $titulo, $mensaje, $id_servico,$type)
 
     curl_close($ch);
 
+}
+
+function get_notificaciones($mysqli, $data) {
+    $user_id = intval($data['user_id'] ?? 0);
+    $tipo_usuario = $data['tipo'] ?? 'cliente'; // 'cliente' o 'domiciliario'
+
+    if ($user_id <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
+        return;
+    }
+
+    // Obtener notificaciones basadas en servicios del usuario
+    if ($tipo_usuario === 'cliente') {
+        // Notificaciones para clientes basadas en sus alquileres
+        $query = "
+            SELECT 
+                a.id as id_alquiler,
+                a.status_servicio,
+                a.fecha_inicio,
+                a.fecha_aceptado,
+                a.start_time,
+                a.fecha_fin,
+                l.type as tipo_lavadora,
+                l.codigo as codigo_lavadora,
+                CONCAT(u.nombre, ' ', u.apellido) as nombre_domiciliario,
+                u.telefono as telefono_domiciliario,
+                CASE 
+                    WHEN a.status_servicio = 1 THEN 'Buscando domiciliario...'
+                    WHEN a.status_servicio = 2 AND a.start_time IS NULL THEN 'Domiciliario en camino'
+                    WHEN a.status_servicio = 2 AND a.start_time IS NOT NULL THEN 'Servicio en curso'
+                    WHEN a.status_servicio = 3 THEN 'Servicio finalizado, esperando recogida'
+                    WHEN a.status_servicio = 4 THEN 'Servicio completado'
+                    WHEN a.status_servicio = 5 THEN 'Servicio cancelado'
+                    ELSE 'Estado desconocido'
+                END as mensaje,
+                CASE 
+                    WHEN a.status_servicio = 1 THEN 'pendiente'
+                    WHEN a.status_servicio = 2 THEN 'en_curso'
+                    WHEN a.status_servicio = 3 THEN 'por_recoger'
+                    WHEN a.status_servicio = 4 THEN 'completado'
+                    WHEN a.status_servicio = 5 THEN 'cancelado'
+                    ELSE 'desconocido'
+                END as tipo_notificacion
+            FROM alquileres a
+            LEFT JOIN lavadoras l ON a.lavadora_id = l.id
+            LEFT JOIN usuarios u ON a.conductor_id = u.id
+            WHERE a.user_id = ?
+            AND a.status_servicio IN (1,2,3)
+            ORDER BY a.fecha_inicio DESC
+            LIMIT 20
+        ";
+    } else {
+        // Notificaciones para domiciliarios basadas en servicios asignados
+        $query = "
+            SELECT 
+                a.id as id_alquiler,
+                a.status_servicio,
+                a.fecha_inicio,
+                a.fecha_aceptado,
+                a.start_time,
+                a.fecha_fin,
+                a.latitud,
+                a.longitud,
+                l.type as tipo_lavadora,
+                l.codigo as codigo_lavadora,
+                CONCAT(u.nombre, ' ', u.apellido) as nombre_cliente,
+                u.telefono as telefono_cliente,
+                u.direccion as direccion_cliente,
+                CASE 
+                    WHEN a.status_servicio = 2 AND a.start_time IS NULL THEN 'Recoger lavadora y entregar al cliente'
+                    WHEN a.status_servicio = 2 AND a.start_time IS NOT NULL THEN 'Servicio en curso'
+                    WHEN a.status_servicio = 3 THEN 'Recoger lavadora del cliente'
+                    ELSE 'Servicio activo'
+                END as mensaje,
+                CASE 
+                    WHEN a.status_servicio = 2 AND a.start_time IS NULL THEN 'por_entregar'
+                    WHEN a.status_servicio = 2 AND a.start_time IS NOT NULL THEN 'en_curso'
+                    WHEN a.status_servicio = 3 THEN 'por_recoger'
+                    ELSE 'activo'
+                END as tipo_notificacion
+            FROM alquileres a
+            LEFT JOIN lavadoras l ON a.lavadora_id = l.id
+            LEFT JOIN usuarios u ON a.user_id = u.id
+            WHERE a.conductor_id = ?
+            AND a.status_servicio IN (2,3)
+            ORDER BY a.fecha_inicio DESC
+            LIMIT 20
+        ";
+    }
+
+    $stmt = $mysqli->prepare($query);
+    if (!$stmt) {
+        echo json_encode(['status' => 'error', 'message' => 'Error en la consulta']);
+        return;
+    }
+
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $notificaciones = [];
+    while ($row = $result->fetch_assoc()) {
+        $notificaciones[] = $row;
+    }
+
+    echo json_encode([
+        'status' => 'ok',
+        'notificaciones' => $notificaciones,
+        'total' => count($notificaciones)
+    ]);
+
+    $stmt->close();
+}
+
+function registrar_notificacion($mysqli, $data) {
+    $user_id = intval($data['user_id'] ?? 0);
+    $tipo_usuario = $data['tipo_usuario'] ?? 'cliente';
+    $titulo = $mysqli->real_escape_string($data['titulo'] ?? '');
+    $mensaje = $mysqli->real_escape_string($data['mensaje'] ?? '');
+    $tipo_notificacion = $mysqli->real_escape_string($data['tipo_notificacion'] ?? 'general');
+    $id_relacionado = intval($data['id_relacionado'] ?? 0);
+
+    if ($user_id <= 0 || empty($titulo) || empty($mensaje)) {
+        echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
+        return;
+    }
+
+    $stmt = $mysqli->prepare("
+        INSERT INTO notificaciones_usuarios 
+        (user_id, tipo_usuario, titulo, mensaje, tipo_notificacion, id_relacionado) 
+        VALUES (?, ?, ?, ?, ?, ?)
+    ");
+
+    if (!$stmt) {
+        echo json_encode(['status' => 'error', 'message' => 'Error en la consulta']);
+        return;
+    }
+
+    $stmt->bind_param("issssi", $user_id, $tipo_usuario, $titulo, $mensaje, $tipo_notificacion, $id_relacionado);
+
+    if ($stmt->execute()) {
+        $notificacion_id = $mysqli->insert_id;
+        
+        // Enviar notificación FCM si el usuario tiene token
+        $token = getUserFMC($mysqli, $user_id);
+        if ($token) {
+            enviarNotificacionFCM($token, $titulo, $mensaje, $id_relacionado, $tipo_notificacion);
+        }
+
+        echo json_encode([
+            'status' => 'ok',
+            'message' => 'Notificación registrada',
+            'id_notificacion' => $notificacion_id
+        ]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Error al registrar notificación']);
+    }
+
+    $stmt->close();
+}
+
+function get_notificaciones_usuario($mysqli, $data) {
+    $user_id = intval($data['user_id'] ?? 0);
+    $solo_no_leidas = isset($data['solo_no_leidas']) ? (bool)$data['solo_no_leidas'] : false;
+    $limit = intval($data['limit'] ?? 50);
+
+    if ($user_id <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
+        return;
+    }
+
+    $where_leida = $solo_no_leidas ? "AND leida = 0" : "";
+
+    $stmt = $mysqli->prepare("
+        SELECT 
+            id,
+            user_id,
+            tipo_usuario,
+            titulo,
+            mensaje,
+            tipo_notificacion,
+            id_relacionado,
+            leida,
+            fecha_creacion
+        FROM notificaciones_usuarios
+        WHERE user_id = ?
+        $where_leida
+        ORDER BY fecha_creacion DESC
+        LIMIT ?
+    ");
+
+    if (!$stmt) {
+        echo json_encode(['status' => 'error', 'message' => 'Error en la consulta']);
+        return;
+    }
+
+    $stmt->bind_param("ii", $user_id, $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $notificaciones = [];
+    $no_leidas = 0;
+
+    while ($row = $result->fetch_assoc()) {
+        $notificaciones[] = $row;
+        if ($row['leida'] == 0) {
+            $no_leidas++;
+        }
+    }
+
+    echo json_encode([
+        'status' => 'ok',
+        'notificaciones' => $notificaciones,
+        'total' => count($notificaciones),
+        'no_leidas' => $no_leidas
+    ]);
+
+    $stmt->close();
+}
+
+function marcar_notificacion_leida($mysqli, $data) {
+    $id_notificacion = intval($data['id_notificacion'] ?? 0);
+    $user_id = intval($data['user_id'] ?? 0);
+
+    if ($id_notificacion <= 0 || $user_id <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
+        return;
+    }
+
+    $stmt = $mysqli->prepare("
+        UPDATE notificaciones_usuarios 
+        SET leida = 1 
+        WHERE id = ? AND user_id = ?
+    ");
+
+    if (!$stmt) {
+        echo json_encode(['status' => 'error', 'message' => 'Error en la consulta']);
+        return;
+    }
+
+    $stmt->bind_param("ii", $id_notificacion, $user_id);
+
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'ok', 'message' => 'Notificación marcada como leída']);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Error al actualizar notificación']);
+    }
+
+    $stmt->close();
+}
+
+function get_servicios_cercanos($mysqli, $data) {
+    global $km;
+    
+    $user_id = intval($data['user_id'] ?? 0);
+    $latitud = floatval($data['latitud'] ?? 0);
+    $longitud = floatval($data['longitud'] ?? 0);
+    $radio_km = floatval($data['radio_km'] ?? $km); // Usar radio personalizado o el global
+
+    if ($user_id <= 0 || $latitud == 0 || $longitud == 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
+        return;
+    }
+
+    // Obtener el negocio del domiciliario
+    $result = $mysqli->query("SELECT conductor_negocio FROM usuarios WHERE id = $user_id");
+    if (!$result || $result->num_rows === 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Usuario no encontrado']);
+        return;
+    }
+
+    $row = $result->fetch_assoc();
+    $conductor_negocio = $row['conductor_negocio'];
+
+    // Obtener servicios pendientes del negocio (sin conductor asignado)
+    $query = "
+        SELECT 
+            a.id as id_alquiler,
+            a.user_id,
+            a.tipo_lavadora,
+            a.tiempo_alquiler,
+            a.latitud,
+            a.longitud,
+            a.total,
+            a.metodo_pago,
+            a.fecha_inicio,
+            CONCAT(u.nombre, ' ', u.apellido) as nombre_cliente,
+            u.telefono as telefono_cliente,
+            u.direccion as direccion_cliente
+        FROM alquileres a
+        JOIN usuarios u ON a.user_id = u.id
+        WHERE  a.status_servicio = 1
+        AND (a.conductor_id = 0 OR a.conductor_id IS NULL)
+        AND a.status = 'activo'
+        ORDER BY a.fecha_inicio DESC
+    ";
+
+    $result = $mysqli->query($query);
+    if (!$result) {
+        echo json_encode(['status' => 'error', 'message' => 'Error en la consulta']);
+        return;
+    }
+
+    $servicios_cercanos = [];
+    
+    while ($servicio = $result->fetch_assoc()) {
+        // Calcular distancia
+        $distancia = calcularDistancia(
+            $latitud, 
+            $longitud, 
+            $servicio['latitud'], 
+            $servicio['longitud']
+        );
+        
+        // Solo incluir si está dentro del radio
+        if ($distancia <= $radio_km) {
+            $servicio['distancia_km'] = round($distancia, 2);
+            $servicios_cercanos[] = $servicio;
+        }
+    }
+
+    // Ordenar por distancia (más cercano primero)
+    usort($servicios_cercanos, function($a, $b) {
+        return $a['distancia_km'] <=> $b['distancia_km'];
+    });
+
+    echo json_encode([
+        'status' => 'ok',
+        'servicios' => $servicios_cercanos,
+        'total' => count($servicios_cercanos),
+        'radio_km' => $radio_km
+    ]);
 }
 
 function log_api($mysqli, $accion, $entrada, $salida) {

@@ -138,17 +138,20 @@ $total_pages = ceil($total_motivo / $limit);
 
 <script>
 function cambiarStatusMotivo(id, nuevoStatus) {
+    showLoading();
     $.post('../controllers/Motivo_controller.php', {
         action: 'cambiar_status_motivo',
         id: id,
         status: nuevoStatus
     }, function() {
-        location.reload();
+        window.location.reload();
     });
 }
 
 function editarMotivo(id) {
+    showLoading('Cargando motivo...');
     $.get('../controllers/motivo_controller.php', { action: 'obtener_motivo', id: id }, function(data) {
+        Swal.close();
         const motivo = JSON.parse(data);
         $('#editar_motivo_id').val(motivo.id);
         $('#editar_descripcion').val(motivo.descripcion);
@@ -158,9 +161,20 @@ function editarMotivo(id) {
 
 $('#formEditarMotivo').submit(function(e) {
     e.preventDefault();
+    const desc = $('#editar_descripcion').val();
+    if (!validateNotEmpty(desc)) { showErrorAlert('Descripción obligatoria'); return; }
+
+    showLoading();
     $.post('../controllers/motivo_controller.php', $(this).serialize() + '&action=editar_motivo', function() {
-        $('#modalEditarMotivo').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Motivo actualizado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalEditarMotivo').modal('hide');
+            location.reload();
+        });
     });
 });
 
@@ -171,9 +185,20 @@ $('a[href="crear_motivo.php"]').click(function(e) {
 
 $('#formCrearMotivo').submit(function(e) {
     e.preventDefault();
+    const desc = $('#crear_descripcion').val();
+    if (!validateNotEmpty(desc)) { showErrorAlert('Descripción obligatoria'); return; }
+
+    showLoading();
     $.post('../controllers/motivo_controller.php', $(this).serialize() + '&action=crear_motivo', function() {
-        $('#modalCrearMotivo').modal('hide');
-        location.reload();
+       Swal.fire({
+            icon: 'success',
+            title: 'Motivo creado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalCrearMotivo').modal('hide');
+            location.reload();
+        });
     });
 });
 </script>

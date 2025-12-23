@@ -29,13 +29,18 @@ if ($action == 'obtener_pago') {
 // Editar pago
 if ($action == 'editar_pago') {
     $id = $_POST['id'];
-    $monto = $_POST['monto'];
+    $valor = $_POST['valor'];
+    $referencia = $_POST['referencia'];
     $metodo_pago = $_POST['metodo_pago'];
 
-    $stmt = $conn->prepare("UPDATE pagos SET monto = ?, metodo_pago = ? WHERE id = ?");
-    $stmt->bind_param("dsi", $monto, $metodo_pago, $id);
-    $stmt->execute();
-    echo 'ok';
+    $stmt = $conn->prepare("UPDATE pagos SET valor = ?, referencia = ?, metodo_pago = ? WHERE id = ?");
+    $stmt->bind_param("dssi", $valor, $referencia, $metodo_pago, $id);
+    
+    if ($stmt->execute()) {
+        echo 'ok';
+    } else {
+        echo 'error';
+    }
 }
 
 // Crear nuevo pago

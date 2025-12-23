@@ -26,8 +26,8 @@ $list_negocios = $conn->query($negocios);
 
 <h1>Listado de Proveedores</h1>
 
-<form action="home.php?m=proveedores" method="GET" class="mb-3">
-    <input type="hidden" name="m" value="proveedores">
+<form action="home.php?m=pr" method="GET" class="mb-3">
+    <input type="hidden" name="m" value="pr">
     <div class="input-group">
         <input type="text" name="search" class="form-control" placeholder="Buscar por nombre" value="<?php echo htmlspecialchars($search); ?>">
         <button type="submit" class="btn btn-primary">Buscar</button>
@@ -78,15 +78,15 @@ $list_negocios = $conn->query($negocios);
         <nav>
             <ul class="pagination">
                 <li class="page-item <?= $page <= 1 ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?m=proveedores&page=<?= $page - 1; ?>&search=<?= htmlspecialchars($search); ?>">Anterior</a>
+                    <a class="page-link" href="?m=pr&page=<?= $page - 1; ?>&search=<?= htmlspecialchars($search); ?>">Anterior</a>
                 </li>
                 <?php for ($i = 1; $i <= $total_pages; $i++) { ?>
                     <li class="page-item <?= $i == $page ? 'active' : ''; ?>">
-                        <a class="page-link" href="?m=proveedores&page=<?= $i; ?>&search=<?= htmlspecialchars($search); ?>"><?= $i; ?></a>
+                        <a class="page-link" href="?m=pr&page=<?= $i; ?>&search=<?= htmlspecialchars($search); ?>"><?= $i; ?></a>
                     </li>
                 <?php } ?>
                 <li class="page-item <?= $page >= $total_pages ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?m=proveedores&page=<?= $page + 1; ?>&search=<?= htmlspecialchars($search); ?>">Siguiente</a>
+                    <a class="page-link" href="?m=pr&page=<?= $page + 1; ?>&search=<?= htmlspecialchars($search); ?>">Siguiente</a>
                 </li>
             </ul>
         </nav>
@@ -172,17 +172,20 @@ $list_negocios = $conn->query($negocios);
 
 <script>
 function cambiarStatusProveedor(id, nuevoStatus) {
+    showLoading();
     $.post('../controllers/proveedor_controller.php', {
         action: 'cambiar_status_proveedor',
         id: id,
         status: nuevoStatus
     }, function() {
-        location.reload();
+        window.location.reload();
     });
 }
 
 function editarProveedor(id) {
+    showLoading('Cargando proveedor...');
     $.get('../controllers/proveedor_controller.php', { action: 'obtener_proveedor', id: id }, function(data) {
+        Swal.close();
         const proveedor = JSON.parse(data);
         $('#editar_proveedor_id').val(proveedor.id);
         $('#editar_nombre').val(proveedor.nombre);
@@ -193,9 +196,24 @@ function editarProveedor(id) {
 
 $('#formEditarProveedor').submit(function(e) {
     e.preventDefault();
+    const nombre = $('#editar_nombre').val();
+    const telefono = $('#editar_telefono').val();
+
+    if (!validateNotEmpty(nombre)) { showErrorAlert('Nombre obligatorio'); return; }
+    if (!validateNotEmpty(telefono)) { showErrorAlert('Teléfono obligatorio'); return; }
+    if (!validatePhone(telefono)) { showErrorAlert('Teléfono: 10 dígitos, inicia con 3'); return; }
+
+    showLoading();
     $.post('../controllers/proveedor_controller.php', $(this).serialize() + '&action=editar_proveedor', function() {
-        $('#modalEditarProveedor').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Proveedor actualizado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalEditarProveedor').modal('hide');
+            location.reload();
+        });
     });
 });
 
@@ -206,9 +224,32 @@ $('a[href="crear_proveedor.php"]').click(function(e) {
 
 $('#formCrearProveedor').submit(function(e) {
     e.preventDefault();
+
+    const negocio = $('select[name="negocio"]').val(); // Might be hidden input or select
+    const nombre = $('#formCrearProveedor input[name="nombre"]').val();
+    const telefono = $('#formCrearProveedor input[name="telefono"]').val();
+    const correo = $('#formCrearProveedor input[name="correo"]').val();
+    const direccion = $('#formCrearProveedor input[name="direccion"]').val();
+
+    if ($('select[name="negocio"]').is(':visible') && !validateNotEmpty(negocio)) { showErrorAlert('Seleccione un negocio'); return; }
+    if (!validateNotEmpty(nombre)) { showErrorAlert('Nombre obligatorio'); return; }
+    if (!validateNotEmpty(telefono)) { showErrorAlert('Teléfono obligatorio'); return; }
+    if (!validatePhone(telefono)) { showErrorAlert('Teléfono: 10 dígitos, inicia con 3'); return; }
+    if (!validateNotEmpty(correo)) { showErrorAlert('Correo obligatorio'); return; }
+    if (!validateEmail(correo)) { showErrorAlert('Correo inválido'); return; }
+    if (!validateNotEmpty(direccion)) { showErrorAlert('Dirección obligatoria'); return; }
+
+    showLoading();
     $.post('../controllers/proveedor_controller.php', $(this).serialize() + '&action=crear_proveedor', function() {
-        $('#modalCrearProveedor').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Proveedor creado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalCrearProveedor').modal('hide');
+            location.reload();
+        });
     });
 });
 </script>

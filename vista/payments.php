@@ -170,29 +170,78 @@ $list_usuarios = $conn->query($usuarios);
 
 <script>
 function editarPago(id) {
-    $.get('../controllers/pago_controller.php', { action: 'get_pago', id: id }, function(data) {
-        const pago = JSON.parse(data);
+    showLoading('Cargando pago...');
+    $.get('../controllers/pago_controller.php', { action: 'obtener_pago', id: id }, function(data) {
+        Swal.close();
+        let pago;
+        try {
+            pago = JSON.parse(data);
+        } catch (e) {
+            console.error("Error parsing JSON:", data);
+            Swal.fire("Error", "No se pudieron cargar los datos", "error");
+            return;
+        }
+        
         $('#edit_id').val(pago.id);
         $('#edit_referencia').val(pago.referencia);
-        $('#edit_valor').val(pago.valor);
+        $('#edit_valor').val(pago.valor); // Assuming controller returns 'valor'
         $('#edit_metodo_pago').val(pago.metodo_pago);
         $('#modalEditarPago').modal('show');
+    }).fail(function() {
+        Swal.close();
+        Swal.fire("Error", "Error de conexión", "error");
     });
 }
 
 $('#formCrearPago').submit(function(e) {
     e.preventDefault();
+    const referencia = $('#formCrearPago input[name="referencia"]').val();
+    const valor = $('#formCrearPago input[name="valor"]').val();
+    const usuario = $('#formCrearPago select[name="usuario_id"]').val();
+    const metodo = $('#formCrearPago select[name="metodo_pago"]').val();
+
+    if (!validateNotEmpty(referencia)) { showErrorAlert('Referencia obligatoria'); return; }
+    if (!validateNotEmpty(valor)) { showErrorAlert('Valor obligatorio'); return; }
+    if (!validateNumeric(valor)) { showErrorAlert('El valor debe ser numérico'); return; }
+    if (!validateNotEmpty(usuario)) { showErrorAlert('Seleccione un cliente'); return; }
+    if (!validateNotEmpty(metodo)) { showErrorAlert('Seleccione un método de pago'); return; }
+
+    showLoading();
     $.post('../controllers/pago_controller.php', $(this).serialize() + '&action=crear_pago', function(response) {
-        $('#modalCrearPago').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Pago creado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalCrearPago').modal('hide');
+            location.reload();
+        });
     });
 });
 
 $('#formEditarPago').submit(function(e) {
     e.preventDefault();
+    const referencia = $('#edit_referencia').val();
+    const valor = $('#edit_valor').val();
+    const metodo = $('#edit_metodo_pago').val();
+
+    if (!validateNotEmpty(referencia)) { showErrorAlert('Referencia obligatoria'); return; }
+    if (!validateNotEmpty(valor)) { showErrorAlert('Valor obligatorio'); return; }
+    if (!validateNumeric(valor)) { showErrorAlert('El valor debe ser numérico'); return; }
+    if (!validateNotEmpty(metodo)) { showErrorAlert('Seleccione un método de pago'); return; }
+
+    showLoading();
     $.post('../controllers/pago_controller.php', $(this).serialize() + '&action=editar_pago', function(response) {
-        $('#modalEditarPago').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Pago actualizado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalEditarPago').modal('hide');
+            location.reload();
+        });
     });
 });
 </script>

@@ -15,11 +15,11 @@ $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : 
 // ---- Query usuarios (si sesión negocio está, filtrar por ese negocio) ----
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
     $negocio_sesion = (int) $_SESSION['negocio'];  // Cast a entero
-    $sql = "SELECT * FROM usuarios WHERE rol_id IN (3,4) AND conductor_negocio = '$negocio_sesion' AND (nombre LIKE '%$search%' OR correo LIKE '%$search%') LIMIT $limit OFFSET $offset";
-    $sql_count = "SELECT COUNT(*) as total FROM usuarios WHERE rol_id IN (3,4) AND conductor_negocio = '$negocio_sesion' AND (nombre LIKE '%$search%' OR correo LIKE '%$search%')";
+    $sql = "SELECT * FROM usuarios WHERE rol_id IN (3,4) AND conductor_negocio = '$negocio_sesion' AND status != 99 AND (nombre LIKE '%$search%' OR correo LIKE '%$search%') ORDER BY id ASC LIMIT $limit OFFSET $offset";
+    $sql_count = "SELECT COUNT(*) as total FROM usuarios WHERE rol_id IN (3,4) AND conductor_negocio = '$negocio_sesion' AND status != 99 AND (nombre LIKE '%$search%' OR correo LIKE '%$search%')";
 } else {
-    $sql = "SELECT * FROM usuarios WHERE rol_id IN (3,4) AND (nombre LIKE '%$search%' OR correo LIKE '%$search%') LIMIT $limit OFFSET $offset";
-    $sql_count = "SELECT COUNT(*) as total FROM usuarios WHERE rol_id IN (3,4) AND (nombre LIKE '%$search%' OR correo LIKE '%$search%')";
+    $sql = "SELECT * FROM usuarios WHERE rol_id IN (3,4) AND status != 99 AND (nombre LIKE '%$search%' OR correo LIKE '%$search%') ORDER BY id ASC LIMIT $limit OFFSET $offset";
+    $sql_count = "SELECT COUNT(*) as total FROM usuarios WHERE rol_id IN (3,4) AND status != 99 AND (nombre LIKE '%$search%' OR correo LIKE '%$search%')";
 }
 
 $result = $conn->query($sql);
@@ -105,6 +105,7 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
                                 <?php endif; ?>
                                     <!-- 🔹 Nuevo botón -->
                                  <button class="btn btn-secondary btn-sm" onclick="resetPassword(<?php echo $row['id']; ?>, '<?php echo $row['correo']; ?>')">Resetear Contraseña</button>
+                                 <button class="btn btn-danger btn-sm" onclick="eliminarUsuario(<?php echo $row['id']; ?>)">Eliminar</button>
                             </td>
                         </tr>
                     <?php endwhile; ?>
@@ -118,15 +119,15 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
         <nav>
             <ul class="pagination">
                 <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>">Anterior</a>
+                    <a class="page-link" href="?m=up&page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>">Anterior</a>
                 </li>
                 <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                     <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
-                        <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>"><?php echo $i; ?></a>
+                        <a class="page-link" href="?m=up&page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>"><?php echo $i; ?></a>
                     </li>
                 <?php endfor; ?>
                 <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>">Siguiente</a>
+                    <a class="page-link" href="?m=up&page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>">Siguiente</a>
                 </li>
             </ul>
         </nav>
@@ -306,15 +307,22 @@ function resetPassword(id, correo) {
 }
 
 
+
+
+
 function cambiarStatus(id, nuevoStatus) {
-    $.post('../controllers/usuario_controller.php', { action: 'cambiar_status', id: id, status: nuevoStatus }, function(response){ location.reload(); });
+    showLoading();
+    $.post('../controllers/usuario_controller.php', { action: 'cambiar_status', id: id, status: nuevoStatus }, function(response){ window.location.reload(); });
 }
 function tomar_recaudo(id, monedero, negocio) {
-    $.post('../controllers/usuario_controller.php', { action: 'tomar_recaudo', id: id, monedero: monedero, negocio: negocio }, function(response){ location.reload(); });
+    showLoading();
+    $.post('../controllers/usuario_controller.php', { action: 'tomar_recaudo', id: id, monedero: monedero, negocio: negocio }, function(response){ window.location.reload(); });
 }
 
 function editarUsuario(id) {
+    showLoading('Cargando usuario...');
     $.get('../controllers/usuario_controller.php', { action: 'obtener_usuario', id: id }, function(data) {
+        Swal.close();
         try {
             const usuario = JSON.parse(data);
             $('#editar_id').val(usuario.id);
@@ -328,17 +336,81 @@ function editarUsuario(id) {
     });
 }
 
+
+function eliminarUsuario(id) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "El usuario será eliminado y su correo liberado. No podrás deshacer esta acción.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading('Eliminando...');
+            $.post('../controllers/usuario_controller.php', { action: 'eliminar_usuario', id: id }, function(response) {
+                if (response.trim() === 'ok') {
+                    Swal.fire(
+                        'Eliminado',
+                        'El usuario ha sido eliminado.',
+                        'success'
+                    ).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire(
+                        'Error',
+                        'Hubo un problema al eliminar el usuario.',
+                        'error'
+                    );
+                }
+            }).fail(function() {
+                Swal.fire('Error', 'Error de conexión.', 'error');
+            });
+        }
+    })
+}
+
 // Enviar formularios
 $('#formCrearPago').submit(function(e){
     e.preventDefault();
+    const referencia = $('input[name="referencia"]').val();
+    const valor = $('input[name="valor"]').val();
+
+    if (!validateNotEmpty(referencia)) { showErrorAlert('Referencia obligatoria'); return; }
+    if (!validateNotEmpty(valor)) { showErrorAlert('Valor obligatorio'); return; }
+    if (!validateNumeric(valor)) { showErrorAlert('El valor debe ser numérico'); return; }
+
+
+
+    showLoading();
     $.post('../controllers/pago_controller.php', $(this).serialize() + '&action=crear_pago', function(response){
-        $('#modalCrearPago').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Pago registrado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalCrearPago').modal('hide');
+            location.reload();
+        });
     });
 });
 
 $('#formEditarUsuario').submit(function(e){
     e.preventDefault();
+    const nombre = $('#editar_nombre').val();
+    const correo = $('#editar_correo').val();
+
+    if (!validateNotEmpty(nombre)) { showErrorAlert('El nombre es obligatorio'); return; }
+    if (!validateNotEmpty(correo)) { showErrorAlert('El correo es obligatorio'); return; }
+    if (!validateEmail(correo)) { showErrorAlert('Correo inválido'); return; }
+
+
+
+    showLoading();
     $.post('../controllers/usuario_controller.php', $(this).serialize() + '&action=editar_usuario', function(response){
         if (response.trim() === 'error_correo_duplicado') {
             Swal.fire({
@@ -348,8 +420,15 @@ $('#formEditarUsuario').submit(function(e){
             });
             return;
         }
-        $('#modalEditar').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Usuario actualizado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalEditar').modal('hide');
+            location.reload();
+        });
     });
 });
 
@@ -359,21 +438,32 @@ $('a[href="crear_usuario.php"]').click(function(e){
     $('#modalCrear').modal('show');
 });
 
-// Enviar crear usuario
 $('#formCrearNegocio').submit(function(e){
     e.preventDefault();
     // Validación: si admin, asegurarse que negocio y proveedor estén seleccionados
     var negocioVal = $('#negocio_select').length ? $('#negocio_select').val() : $('#id').val();
     var proveedorVal = $('#editar_proveedor').val();
-    if (!negocioVal) {
-        alert('Seleccione un negocio');
-        return;
-    }
-    if (!proveedorVal) {
-        alert('Seleccione un proveedor');
-        return;
-    }
+    
+    if (!validateNotEmpty(negocioVal)) { showErrorAlert('Seleccione un negocio'); return; }
+    if (!validateNotEmpty(proveedorVal)) { showErrorAlert('Seleccione un proveedor'); return; }
 
+    const nombre = $('#formCrearNegocio #editar_usuario_nombre').val();
+    const apellido = $('#formCrearNegocio #editar_usuario_apellido').val();
+    const telefono = $('#formCrearNegocio #editar_usuario_telefono').val();
+    const correo = $('#formCrearNegocio #editar_usuario_correo').val();
+    const usuario = $('#formCrearNegocio #editar_usuario_usuario').val();
+
+    if (!validateNotEmpty(nombre)) { showErrorAlert('Nombre obligatorio'); return; }
+    if (!validateNotEmpty(apellido)) { showErrorAlert('Apellido obligatorio'); return; }
+    if (!validateNotEmpty(telefono)) { showErrorAlert('Teléfono obligatorio'); return; }
+    if (!validatePhone(telefono)) { showErrorAlert('Teléfono: 10 dígitos, inicia con 3'); return; }
+    if (!validateNotEmpty(correo)) { showErrorAlert('Correo obligatorio'); return; }
+    if (!validateEmail(correo)) { showErrorAlert('Correo inválido'); return; }
+    if (!validateNotEmpty(usuario)) { showErrorAlert('Usuario obligatorio'); return; }
+    
+
+    
+    showLoading();
     $.post('../controllers/usuario_controller.php', $(this).serialize() + '&action=crear_usuario_app', function(response){
         if (response.trim() === 'error_correo_duplicado') {
             Swal.fire({
@@ -383,8 +473,15 @@ $('#formCrearNegocio').submit(function(e){
             });
             return;
         }
-        $('#modalCrear').modal('hide');
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Usuario creado',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            $('#modalCrear').modal('hide');
+            location.reload();
+        });
     });
 });
 
@@ -410,4 +507,4 @@ $('#negocio_select').on('change', function(){
     }
 });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+

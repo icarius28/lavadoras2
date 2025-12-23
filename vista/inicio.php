@@ -1,203 +1,310 @@
 <?php
+// vista/inicio.php
 
-// Obtener los totales de la base de datos
-// Total de alquileres
-$sql_alquileres = "SELECT COUNT(*) as total_alquileres FROM alquileres";
-$result_alquileres = $conn->query($sql_alquileres);
-$row_alquileres = $result_alquileres->fetch_assoc();
-$total_alquileres = $row_alquileres['total_alquileres'];
+// 1. Definicón de variables base
+$negocio_id = isset($_SESSION['negocio']) ? (int)$_SESSION['negocio'] : 0;
+$is_admin = (!$negocio_id);
 
-// Total de usuarios
-$sql_usuarios = "SELECT COUNT(*) as total_usuarios FROM usuarios";
-$result_usuarios = $conn->query($sql_usuarios);
-$row_usuarios = $result_usuarios->fetch_assoc();
-$total_usuarios = $row_usuarios['total_usuarios'];
+// Inicializar contadores
+$total_alquileres = 0;
+$total_ingresos = 0;
+$alquileres_activos = 0;
+$usuarios_registrados = 0; // Solo admin
+$negocios_registrados = 0; // Solo admin
+$lavadoras_disponibles = 0;
+$total_lavadoras = 0;
 
-// Total de negocios
-$sql_negocios = "SELECT COUNT(*) as total_negocios FROM negocios";
-$result_negocios = $conn->query($sql_negocios);
-$row_negocios = $result_negocios->fetch_assoc();
-$total_negocios = $row_negocios['total_negocios'];
+// Array para gráfica mensual (Enero-Diciembre)
+$chart_revenue = array_fill(1, 12, 0);
+$chart_rentals = array_fill(1, 12, 0);
+$months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-$sql_alquileres_por_mes = "
-    SELECT 
-        MONTH(fecha_inicio) AS mes, 
-        COUNT(*) AS cantidad 
-    FROM alquileres 
-    GROUP BY mes
-    ORDER BY mes
-";
-
-$result_alquileres_por_mes = $conn->query($sql_alquileres_por_mes);
-
-$datos_alquileres = array_fill(1, 12, 0); // Inicializa de enero (1) a diciembre (12) con 0
-
-while ($row = $result_alquileres_por_mes->fetch_assoc()) {
-    $mes = (int)$row['mes'];
-    $datos_alquileres[$mes] = (int)$row['cantidad'];
-}
-
-
-if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
-    $negocio_id = (int) $_SESSION['negocio'];
+// 2. Consultas según Rol
+if ($is_admin) {
+    // --- ADMIN QUERY ---
     
-    $sql_alquileres = "SELECT COUNT(*) as total_alquileres FROM alquileres WHERE negocio_id = '$negocio_id'";
-    $result_alquileres = $conn->query($sql_alquileres);
-    $total_alquileres = $result_alquileres->fetch_assoc()['total_alquileres'];
+    // KPIs Generales
+    $kpi1 = $conn->query("SELECT 
+        COUNT(*) as total_rentals, 
+        SUM(valor_servicio) as total_revenue,
+        (SELECT COUNT(*) FROM alquileres WHERE status = 'activo') as active_rentals
+        FROM alquileres");
+    if($r = $kpi1->fetch_assoc()){
+        $total_alquileres = $r['total_rentals'];
+        $total_ingresos = $r['total_revenue'] ?? 0;
+        $alquileres_activos = $r['active_rentals'];
+    }
 
-    $sql_lavadoras_disponibles = "SELECT COUNT(*) as lavadoras FROM lavadoras WHERE negocio_id = '$negocio_id' and status = 'disponible'";
-    $result_lavadoras_disponibles = $conn->query($sql_lavadoras_disponibles);
-    $lavadoras_disponibles = $result_lavadoras_disponibles->fetch_assoc()['lavadoras'];
+    // KPIs Usuarios/Negocios
+    $usersq = $conn->query("SELECT COUNT(*) as c FROM usuarios");
+    $usuarios_registrados = $usersq->fetch_assoc()['c'];
+    
+    $negsq = $conn->query("SELECT COUNT(*) as c FROM negocios");
+    $negocios_registrados = $negsq->fetch_assoc()['c'];
 
-    $sql_lavadoras = "SELECT COUNT(*) as lavadoras FROM lavadoras WHERE negocio_id = '$negocio_id'";
-    $result_lavadoras = $conn->query($sql_lavadoras);
-    $total_lavadoras = $result_lavadoras->fetch_assoc()['lavadoras'];
+    // Gráfica de Ingresos Mensuales
+    $revenue_q = $conn->query("SELECT MONTH(fecha_inicio) as mes, SUM(valor_servicio) as total FROM alquileres GROUP BY mes");
+    while($row = $revenue_q->fetch_assoc()){
+        $chart_revenue[(int)$row['mes']] = (float)$row['total'];
+    }
 
-    $sql_ult_alq = "SELECT 
-    alquileres.*, 
-    usuarios.nombre AS cliente_nombre
-    FROM alquileres
-    LEFT JOIN usuarios ON alquileres.user_id = usuarios.id
-    WHERE negocio_id = '$negocio_id'
-    ORDER BY alquileres.id DESC 
-    LIMIT 10";
-    $list_ult_alquileres = $conn->query($sql_ult_alq);
+} else {
+    // --- NEGOCIO QUERY ---
 
-    $sql_alquileres_por_mes = "
-    SELECT 
-        MONTH(fecha_inicio) AS mes, 
-        COUNT(*) AS cantidad 
-    FROM alquileres 
-    WHERE negocio_id = '$negocio_id'
-    GROUP BY mes
-    ORDER BY mes
-";
+    // KPIs Generales Negocio
+    $kpi1 = $conn->query("SELECT 
+        COUNT(*) as total_rentals, 
+        SUM(valor_servicio) as total_revenue,
+        (SELECT COUNT(*) FROM alquileres WHERE negocio_id = $negocio_id AND status = 'activo') as active_rentals
+        FROM alquileres WHERE negocio_id = $negocio_id");
+    
+    if($r = $kpi1->fetch_assoc()){
+        $total_alquileres = $r['total_rentals'];
+        $total_ingresos = $r['total_revenue'] ?? 0;
+        $alquileres_activos = $r['active_rentals'];
+    }
 
-        $result_alquileres_por_mes = $conn->query($sql_alquileres_por_mes);
+    // Lavadoras
+    $lavq = $conn->query("SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'disponible' THEN 1 ELSE 0 END) as disponibles
+        FROM lavadoras WHERE negocio_id = $negocio_id");
+    if($l = $lavq->fetch_assoc()){
+        $total_lavadoras = $l['total'];
+        $lavadoras_disponibles = $l['disponibles'];
+    }
 
-        $datos_alquileres = array_fill(1, 12, 0); // Inicializa de enero (1) a diciembre (12) con 0
-
-        while ($row = $result_alquileres_por_mes->fetch_assoc()) {
-            $mes = (int)$row['mes'];
-            $datos_alquileres[$mes] = (int)$row['cantidad'];
-        }
-
+    // Gráfica de Ingresos Mensuales Negocio
+    $revenue_q = $conn->query("SELECT MONTH(fecha_inicio) as mes, SUM(valor_servicio) as total 
+                               FROM alquileres WHERE negocio_id = $negocio_id GROUP BY mes");
+    while($row = $revenue_q->fetch_assoc()){
+        $chart_revenue[(int)$row['mes']] = (float)$row['total'];
+    }
 }
-$datos_json = json_encode(array_values($datos_alquileres));
 
-// Cerrar la conexión
-$conn->close();
+// 3. Tabla de Actividad Reciente (Común pero filtrada)
+$limit_recent = 5;
+$where_recent = $is_admin ? "1=1" : "a.negocio_id = $negocio_id";
+$recent_q = "SELECT a.*, u.nombre as usuario, l.codigo as lavadora 
+             FROM alquileres a
+             JOIN usuarios u ON a.user_id = u.id
+             JOIN lavadoras l ON a.lavadora_id = l.id
+             WHERE $where_recent
+             ORDER BY a.fecha_inicio DESC LIMIT $limit_recent";
+$recent_res = $conn->query($recent_q);
 
 ?>
 
-<h1>Bienvenido al Dashboard</h1>
-            <div class="row">
-                <!-- Tarjeta con datos estadísticos -->
-                <div class="col-md-4 mb-4">
-                    <div class="card shadow">
-                        <div class="card-header">
-                            <h5>Total Alquileres</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text" id="total-alquileres"><?= $total_alquileres ?></p> <!-- Total dinámico -->
-                        </div>
-                    </div>
-                </div>
-<?php if(isset($_SESSION['negocio']) && $_SESSION['negocio']){ ?>
-   
-    <div class="col-md-4 mb-4">
-                    <div class="card shadow">
-                        <div class="card-header">
-                            <h5>Lavadoras</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text" id="total-usuarios"><?= $lavadoras ?></p> <!-- Total dinámico -->
-                        </div>
-                    </div>
-                </div>
+<!-- ESTILOS DASHBOARD -->
+<style>
+    .stat-card {
+        border: none;
+        border-radius: 15px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        overflow: hidden;
+        color: white;
+        height: 100%;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+    }
+    .stat-card .card-body {
+        padding: 25px;
+        position: relative;
+        z-index: 1;
+    }
+    .stat-icon {
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 3.5rem;
+        opacity: 0.3;
+        z-index: 0;
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    .stat-label {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.9;
+    }
+    
+    /* Gradientes */
+    .bg-gradient-primary { background: linear-gradient(45deg, #4e73df, #224abe); }
+    .bg-gradient-success { background: linear-gradient(45deg, #1cc88a, #13855c); }
+    .bg-gradient-info    { background: linear-gradient(45deg, #36b9cc, #258391); }
+    .bg-gradient-warning { background: linear-gradient(45deg, #f6c23e, #dda20a); }
+    .bg-gradient-danger  { background: linear-gradient(45deg, #e74a3b, #be2617); }
 
-                <div class="col-md-4 mb-4">
-                    <div class="card shadow">
-                        <div class="card-header">
-                            <h5>Lavadoras disponibles</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text" id="total-negocios"><?= $total_lavadoras_disponibles ?></p> <!-- Total dinámico -->
-                        </div>
-                    </div>
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        margin-bottom: 25px;
+    }
+    .table-container {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    .badge-status-activo { background-color: #1cc88a; color: white; }
+    .badge-status-finalizado { background-color: #858796; color: white; }
+</style>
+
+<div class="row mb-4 animate__animated animate__fadeIn">
+    <div class="col-12">
+        <h2 class="text-gray-800 border-bottom pb-2">Panel de Control <small class="text-muted text-sm"><?= $is_admin ? '(Administrador)' : '(Negocio)' ?></small></h2>
+    </div>
+</div>
+
+<!-- KPI CARDS -->
+<div class="row g-4 mb-5 animate__animated animate__fadeInUp">
+    
+    <!-- Ingresos Totales -->
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card bg-gradient-success">
+            <div class="card-body">
+                <div class="stat-value">$ <?= number_format($total_ingresos, 0, ',', '.') ?></div>
+                <div class="stat-label">Ingresos Totales</div>
+                <i class="fas fa-dollar-sign stat-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alquileres Activos -->
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card bg-gradient-warning">
+            <div class="card-body">
+                <div class="stat-value"><?= $alquileres_activos ?></div>
+                <div class="stat-label">Alquileres En Curso</div>
+                <i class="fas fa-stopwatch stat-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alquileres Totales -->
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card bg-gradient-primary">
+            <div class="card-body">
+                <div class="stat-value"><?= $total_alquileres ?></div>
+                <div class="stat-label">Histórico Alquileres</div>
+                <i class="fas fa-history stat-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <?php if($is_admin): ?>
+        <!-- Usuarios (Solo Admin) -->
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card bg-gradient-info">
+                <div class="card-body">
+                    <div class="stat-value"><?= $usuarios_registrados ?></div>
+                    <div class="stat-label">Usuarios App</div>
+                    <i class="fas fa-users stat-icon"></i>
                 </div>
             </div>
-            <?php 
-
-            }else{
-            ?>
-
-<div class="col-md-4 mb-4">
-                    <div class="card shadow">
-                        <div class="card-header">
-                            <h5>Total Usuarios</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text" id="total-usuarios"><?= $total_usuarios ?></p> <!-- Total dinámico -->
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-4 mb-4">
-                    <div class="card shadow">
-                        <div class="card-header">
-                            <h5>Total Negocios</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text" id="total-negocios"><?= $total_negocios ?></p> <!-- Total dinámico -->
-                        </div>
-                    </div>
+        </div>
+    <?php else: ?>
+        <!-- Lavadoras (Solo Negocio) -->
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card bg-gradient-info">
+                <div class="card-body">
+                    <div class="stat-value"><?= $lavadoras_disponibles ?> / <?= $total_lavadoras ?></div>
+                    <div class="stat-label">Lavadoras Disponibles</div>
+                    <i class="fas fa-plug stat-icon"></i>
                 </div>
             </div>
+        </div>
+    <?php endif; ?>
 
-            <?php } ?>
+</div>
 
-            <!-- Gráfico de estadísticas -->
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="card shadow">
-                        <div class="card-header">
-                            <h5>Gráfico de Alquileres</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="alquileres-chart"></div>
-                        </div>
-                    </div>
-                </div>
+<!-- CHARTS & TABLES -->
+<div class="row">
+    <!-- Chart: Ingresos -->
+    <div class="col-lg-8 mb-4">
+        <div class="chart-container h-100">
+            <h5 class="text-primary mb-3"><i class="fas fa-chart-line me-2"></i>Ingresos Mensuales</h5>
+            <div id="revenueChart" style="height: 350px;"></div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="col-lg-4 mb-4">
+        <div class="table-container h-100">
+            <h5 class="text-primary mb-3"><i class="fas fa-list me-2"></i>Últimos Alquileres</h5>
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Estado</th>
+                            <th class="text-end">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if($recent_res && $recent_res->num_rows > 0): ?>
+                            <?php while($row = $recent_res->fetch_assoc()): 
+                                $status_badge = $row['status'] == 'activo' ? 'bg-success' : ($row['status'] == 'finalizado' ? 'bg-secondary' : 'bg-warning');
+                            ?>
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold"><?= htmlspecialchars($row['usuario']) ?></div>
+                                        <small class="text-muted"><?= date('d M H:i', strtotime($row['fecha_inicio'])) ?></small>
+                                    </td>
+                                    <td><span class="badge <?= $status_badge ?> rounded-pill"><?= ucfirst($row['status']) ?></span></td>
+                                    <td class="text-end text-success fw-bold">$<?= number_format($row['valor_servicio'],0,',','.') ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr><td colspan="3" class="text-center text-muted">Sin actividad reciente</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
+            <div class="text-center mt-3">
+                <a href="home.php?m=a" class="btn btn-sm btn-outline-primary rounded-pill">Ver todos</a>
+            </div>
+        </div>
+    </div>
+</div>
 
-            </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Usar Highcharts para mostrar gráficos
-
-        // Aquí colocarás los datos dinámicos desde la base de datos
-
-    Highcharts.chart('alquileres-chart', {
-        chart: {
-            type: 'column'
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    Highcharts.chart('revenueChart', {
+        chart: { type: 'areaspline' },
+        title: { text: null },
+        xAxis: { 
+            categories: <?= json_encode($months) ?>,
+            crosshair: true
         },
-        title: {
-            text: 'Alquileres por Mes'
+        yAxis: { 
+            title: { text: 'Ingresos ($)' },
+            labels: { format: '${value}' }
         },
-        xAxis: {
-            categories: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+        tooltip: {
+            shared: true,
+            valuePrefix: '$'
         },
-        yAxis: {
-            title: {
-                text: 'Número de Alquileres'
+        credits: { enabled: false },
+        plotOptions: {
+            areaspline: {
+                fillOpacity: 0.5
             }
         },
         series: [{
-            name: 'Alquileres',
-            data: <?= $datos_json ?>
+            name: 'Ingresos',
+            data: <?= json_encode(array_values($chart_revenue)) ?>,
+            color: '#1cc88a'
         }]
     });
+});
 </script>
-    </script>

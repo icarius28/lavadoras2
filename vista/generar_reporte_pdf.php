@@ -7,9 +7,9 @@ $fecha_inicio = $_GET['fecha_inicio'];
 $fecha_fin = $_GET['fecha_fin'];
 $negocio_id = $_GET['negocio_id'];
 
-$where = "WHERE fecha_inicio BETWEEN '$fecha_inicio' AND '$fecha_fin'";
+$where = "WHERE a.fecha_inicio BETWEEN '$fecha_inicio' AND '$fecha_fin'";
 if (!empty($negocio_id)) {
-    $where .= " AND negocio_id = $negocio_id";
+    $where .= " AND a.negocio_id = $negocio_id";
 }
 
 $query = "

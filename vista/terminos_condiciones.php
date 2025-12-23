@@ -48,11 +48,36 @@ if ($result && $row = $result->fetch_assoc()) {
 <script>
 $('#formTerminos').submit(function(e) {
   e.preventDefault();
+  
+  const terminos = $('#terminos').val();
+  const terminos_uso = $('#terminos_uso').val();
+  const terminos_delivery = $('#terminos_delivery').val();
+  const terminos_uso_delivery = $('#terminos_uso_delivery').val();
+
+  if (!validateNotEmpty(terminos)) { showErrorAlert('Términos y Condiciones obligatorio'); return; }
+  if (!validateNotEmpty(terminos_uso)) { showErrorAlert('Términos de Uso obligatorio'); return; }
+  if (!validateNotEmpty(terminos_delivery)) { showErrorAlert('Términos de Delivery obligatorio'); return; }
+  if (!validateNotEmpty(terminos_uso_delivery)) { showErrorAlert('Términos de Uso de Delivery obligatorio'); return; }
+
+
+  
+  showLoading();
   $.post('../controllers/terminos_controller.php', $(this).serialize() + '&action=guardar_config', function(response) {
-    alert("Términos actualizados correctamente");
-    location.reload();
+    Swal.fire({
+        icon: 'success',
+        title: 'Guardado',
+        text: 'Términos actualizados correctamente',
+        showConfirmButton: false,
+        timer: 1500
+    }).then(() => {
+        location.reload();
+    });
   }).fail(function() {
-    alert("Error al guardar los términos.");
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al guardar los términos.',
+    });
   });
 });
 </script>

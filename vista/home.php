@@ -32,6 +32,11 @@ $no_vistas = count(array_filter($notificaciones, fn($n) => $n['vista'] == 0));
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Custom Validation -->
+    <script src="js/validation.js"></script>
 
     <style>
         html, body {
@@ -66,6 +71,11 @@ $no_vistas = count(array_filter($notificaciones, fn($n) => $n['vista'] == 0));
         }
         .sidebar a:hover {
             background-color: #0056b3;
+        }
+        .sidebar a.active {
+            background-color: #004494;
+            font-weight: bold;
+            border-left: 4px solid #00cba9;
         }
         .content {
             margin-left: 260px;

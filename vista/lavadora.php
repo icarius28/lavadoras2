@@ -300,11 +300,22 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
         $('#id_lavadora_asignar').val(id);
     }
 
-        $('#formAsignarLavadora').submit(function(e) {
+    $('#formAsignarLavadora').submit(function(e) {
         e.preventDefault();
+        const user = $('#id_user').val();
+        if (!validateNotEmpty(user)) { showErrorAlert('Seleccione un usuario'); return; }
+
+        showLoading('Asignando...');
         $.post('../controllers/lavadora_controller.php', $(this).serialize() + '&action=asginar', function(response) {
-            $('#modalEditar').modal('hide');
-           location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'Asignada',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                $('#modalAsginar').modal('hide');
+                location.reload();
+            });
         });
     });
 
@@ -315,11 +326,22 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
         $('#id_lavadora_devolver').val(id);
     }
 
-        $('#formdevolverLavadora').submit(function(e) {
+    $('#formdevolverLavadora').submit(function(e) {
         e.preventDefault();
+        const obs = $('#observacion').val();
+        if (!validateNotEmpty(obs)) { showErrorAlert('La observación es obligatoria'); return; }
+
+        showLoading('Devolviendo...');
         $.post('../controllers/lavadora_controller.php', $(this).serialize() + '&action=devolver', function(response) {
-            $('#modalEditar').modal('hide');
-           location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'Devuelta',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                $('#modaldevolver').modal('hide');
+                location.reload();
+            });
         });
     });
 
@@ -338,20 +360,23 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
     }
 
     function cambiarStatus(id, nuevoStatus) {
+        showLoading();
         $.post('../controllers/lavadora_controller.php', {
             action: 'cambiar_status',
             id: id,
             status: nuevoStatus
         }, function(response) {
-            location.reload();
+            window.location.reload();
         });
     }
 
     function editarNegocio(id) {
+        showLoading('Cargando...');
         $.get('../controllers/lavadora_controller.php', {
             action: 'obtener_lavadora',
             id: id
         }, function(data) {
+            Swal.close();
             const negocio = JSON.parse(data);
             $('#editar_id').val(negocio.id);
             $('#editar_codigo').val(negocio.codigo);
@@ -362,9 +387,23 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
 
     $('#formeditarNegocio').submit(function(e) {
         e.preventDefault();
+        const codigo = $('#editar_codigo').val();
+        const type = $('#editar_type').val();
+
+        if (!validateNotEmpty(codigo)) { showErrorAlert('Código obligatorio'); return; }
+        if (!validateNotEmpty(type)) { showErrorAlert('Seleccione un tipo'); return; }
+
+        showLoading();
         $.post('../controllers/lavadora_controller.php', $(this).serialize() + '&action=editar_lavadora', function(response) {
-            $('#modalEditar').modal('hide');
-            location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'Actualizado',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                $('#modalEditar').modal('hide');
+                location.reload();
+            });
         });
     });
 
@@ -375,11 +414,28 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
     });
 
     // Enviar formulario con AJAX
+    // Enviar formulario con AJAX
     $('#formCrearNegocio').submit(function(e) {
         e.preventDefault();
+        const codigo = $('#codigo').val();
+        const type = $('#formCrearNegocio select[name="type"]').val();
+        const negocio = $('#negocio').val();
+
+        if (!validateNotEmpty(codigo)) { showErrorAlert('Código obligatorio'); return; }
+        if (!validateNotEmpty(type)) { showErrorAlert('Seleccione un tipo'); return; }
+        if ($('#negocio').is(':visible') && !validateNotEmpty(negocio)) { showErrorAlert('Seleccione un negocio'); return; }
+
+        showLoading();
         $.post('../controllers/lavadora_controller.php', $(this).serialize() + '&action=crear_lavadora', function(response) {
-            $('#modalCrear').modal('hide');
-            location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'Lavadora creada',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                $('#modalCrear').modal('hide');
+                location.reload();
+            });
         });
     });
 </script>

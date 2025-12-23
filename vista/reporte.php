@@ -26,5 +26,21 @@ $negocios = $conn->query("SELECT id, nombre FROM negocios WHERE status = 1");
             </select>
         </div>
     </div>
-    <button type="submit" class="btn btn-success">Generar PDF</button>
+    <button type="submit" id="btnGenerar" class="btn btn-success">Generar PDF</button>
 </form>
+
+<script>
+$('form').submit(function(e) {
+    const inicio = $('input[name="fecha_inicio"]').val();
+    const fin = $('input[name="fecha_fin"]').val();
+
+    if (!validateNotEmpty(inicio)) { showErrorAlert('Fecha inicio obligatoria'); e.preventDefault(); return; }
+    if (!validateNotEmpty(fin)) { showErrorAlert('Fecha fin obligatoria'); e.preventDefault(); return; }
+    
+    if (new Date(inicio) > new Date(fin)) {
+        showErrorAlert('La fecha de inicio no puede ser mayor a la fecha fin');
+        e.preventDefault();
+        return;
+    }
+});
+</script>

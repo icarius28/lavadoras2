@@ -59,11 +59,24 @@ $tipos_servicio = ['normal', '24horas', 'nocturno'];
 <script>
 $('#formPrecioLavadoras').submit(function(e) {
     e.preventDefault();
+    showLoading();
+    // Validar campos vacíos o inconsistentes si es necesario (aquí ya tienen 'required' y son numéricos)
+    
     $.post('../controllers/precio_controller.php', $(this).serialize() + '&action=guardar_precios_lavadoras', function(response) {
-        alert("Guardado correctamente");
-        location.reload();
+        Swal.fire({
+            icon: 'success',
+            title: 'Guardado correctamente',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            location.reload();
+        });
     }).fail(function() {
-        alert("Error al guardar");
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al guardar los precios',
+        });
     });
 });
 </script>
