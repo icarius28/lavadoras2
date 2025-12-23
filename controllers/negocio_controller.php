@@ -32,7 +32,7 @@ if ($action == 'editar_negocio') {
     $latitud = $_POST['latitud'];
     $longitud = $_POST['longitud'];
     $stmt = $conn->prepare("UPDATE negocios SET nombre = ?, direccion = ?, telefono = ?, ciudad = ?, latitud = ?, longitud = ? WHERE id = ?");
-    $stmt->bind_param("ssssi", $nombre, $direccion, $telefono, $ciudad, $latitud, $longitud, $id);
+    $stmt->bind_param("ssssddi", $nombre, $direccion, $telefono, $ciudad, $latitud, $longitud, $id);
     $stmt->execute();
     echo 'ok';
 }

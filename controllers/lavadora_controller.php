@@ -104,7 +104,7 @@ if ($action == 'devolver') {
     
    
    if ($stmt_negocio->execute()) {
-     $token = getUserFMC($conn, $id_user_snd);
+     $token = getUserFCM($conn, $id_user_snd);
      var_dump($token);
        enviarNotificacionFCM($token, "Devuelta a bodega", "La lavadora fue devuelta a bodega", "", "devuelta_bodega");
        echo 'ok';

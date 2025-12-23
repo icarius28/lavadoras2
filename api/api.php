@@ -3,16 +3,18 @@ header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
 $host = "localhost";
-$user = "root";
-$password = "";
-$dbname = "lavadora";
-
+$user = "alquilav_ndb";
+$password = "&^L1s,)Z_W56";
+$dbname = "alquilav_ndb";
 
 $mysqli = new mysqli($host, $user, $password, $dbname);
 
 if ($mysqli->connect_error) {
     die(json_encode(['status' => 'error', 'message' => 'Error de conexión']));
 }
+
+// Configurar charset UTF-8 para evitar problemas con json_encode
+$mysqli->set_charset("utf8mb4");
 
 $result = $mysqli->query("SELECT * FROM config_general LIMIT 1");
 
@@ -265,30 +267,82 @@ function lavadoras_de_negocio($mysqli, $data) {
     $id_negocio = intval($data['id_negocio'] ?? 0);
 
     if ($id_negocio <= 0) {
-        echo json_encode(['status' => 'error', 'message' => 'ID de negocio inválido']);
+        echo json_encode(['status' => 'error', 'message' => 'ID de negocio inválido', 'debug' => 'id_negocio recibido: ' . ($data['id_negocio'] ?? 'no enviado')]);
         return;
     }
 
     // Preparar la consulta para evitar inyección SQL
     $stmt = $mysqli->prepare("SELECT * FROM lavadoras WHERE negocio_id = ?");
     if (!$stmt) {
-        echo json_encode(['status' => 'error', 'message' => 'Error en la preparación de la consulta']);
+        echo json_encode(['status' => 'error', 'message' => 'Error en la preparación de la consulta', 'error' => $mysqli->error]);
         return;
     }
 
     $stmt->bind_param("i", $id_negocio);
-    $stmt->execute();
+    
+    // Verificar la ejecución
+    if (!$stmt->execute()) {
+        echo json_encode(['status' => 'error', 'message' => 'Error al ejecutar la consulta', 'error' => $stmt->error]);
+        $stmt->close();
+        return;
+    }
+    
     $result = $stmt->get_result();
+    
+    if (!$result) {
+        echo json_encode(['status' => 'error', 'message' => 'Error al obtener resultados', 'error' => $stmt->error]);
+        $stmt->close();
+        return;
+    }
 
     $lavadoras = [];
     while ($row = $result->fetch_assoc()) {
-        $lavadoras[] = $row;
+        // Limpiar datos para asegurar compatibilidad con JSON
+        $clean_row = [];
+        foreach ($row as $key => $value) {
+            if (is_string($value)) {
+                // Asegurar que todos los strings sean UTF-8 válidos
+                $clean_row[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+            } else {
+                $clean_row[$key] = $value;
+            }
+        }
+        $lavadoras[] = $clean_row;
     }
 
+
     if (!empty($lavadoras)) {
-        echo json_encode(['status' => 'ok', 'disponibles' => $lavadoras]);
+        $response = ['status' => 'ok', 'disponibles' => $lavadoras, 'total' => count($lavadoras)];
+        $json = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        
+        if ($json === false) {
+            // Si json_encode falla, mostrar el error
+            echo json_encode([
+                'status' => 'error', 
+                'message' => 'Error al codificar JSON', 
+                'json_error' => json_last_error_msg(),
+                'data_count' => count($lavadoras)
+            ]);
+        } else {
+            echo $json;
+        }
     } else {
-        echo json_encode(['status' => 'error', 'message' => 'No hay lavadoras asignadas']);
+        // Verificar si existen lavadoras en la base de datos para este negocio
+        $check_stmt = $mysqli->prepare("SELECT COUNT(*) as total FROM lavadoras WHERE negocio_id = ?");
+        $check_stmt->bind_param("i", $id_negocio);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
+        $check_row = $check_result->fetch_assoc();
+        $check_stmt->close();
+        
+        echo json_encode([
+            'status' => 'error', 
+            'message' => 'No hay lavadoras asignadas', 
+            'debug' => [
+                'id_negocio_buscado' => $id_negocio,
+                'total_en_db' => $check_row['total']
+            ]
+        ]);
     }
 
     $stmt->close();
@@ -931,14 +985,14 @@ function cancelar_servicio($mysqli, $data) {
         return;
     }
     
-     $token = getFMCByServicio($mysqli, $service_id, $tipo = 'usuario');
+     $token = getFMCByServicio($mysqli, $id_alquiler, $tipo = 'usuario');
     
     if ($token) {
         enviarNotificacionFCM($token, "Actualización de servicio", "El servicio ha sido cancelado", $id_alquiler, 'update_rental');
     }
 
 
-     $token = getFMCByServicio($mysqli, $service_id, $tipo = 'domiciliario');
+     $token = getFMCByServicio($mysqli, $id_alquiler, $tipo = 'domiciliario');
         
         if ($token) {
             enviarNotificacionFCM($token, "Actualización de servicio", "El servicio ha sido cancelado", $id_alquiler, 'update_rental');
@@ -946,13 +1000,14 @@ function cancelar_servicio($mysqli, $data) {
 
     
     
+    // Actualizar contador de cancelaciones del usuario
     $stmt = $mysqli->prepare("SELECT cantidad FROM ban_user WHERE id_user = ?");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
     
     if ($result->num_rows > 0) {
-        // 2. Si existe, obtener cantidad actual y sumarle 1
+        // Si existe, obtener cantidad actual y sumarle 1
         $row = $result->fetch_assoc();
         $cantidadActual = (int)$row['cantidad'];
         $nuevaCantidad = $cantidadActual + 1;
@@ -962,13 +1017,14 @@ function cancelar_servicio($mysqli, $data) {
         $stmt_update->execute();
         $stmt_update->close();
     } else {
-        // 3. Si no existe, insertar con cantidad = 1
+        // Si no existe, insertar con cantidad = 1
         $cantidadInicial = 1;
         $stmt_insert = $mysqli->prepare("INSERT INTO ban_user (id_user, cantidad) VALUES (?, ?)");
         $stmt_insert->bind_param("ii", $user_id, $cantidadInicial);
         $stmt_insert->execute();
         $stmt_insert->close();
     }
+    $stmt->close();
     
 
     // Hora actual del servidor
@@ -993,32 +1049,6 @@ function cancelar_servicio($mysqli, $data) {
     }
     $row = $result->fetch_assoc();
     $lavadora_id = $row['lavadora_id'];
-    
-    
-        $stmt_check = $mysqli->prepare("SELECT cantidad FROM ban_user WHERE id_user = ?");
-    $stmt_check->bind_param("i", $user_id);
-    $stmt_check->execute();
-    $stmt_check->store_result();
-
-    if ($stmt_check->num_rows > 0) {
-        // Ya existe, actualizar cantidad
-        $stmt_check->bind_result($cantidad_actual);
-        $stmt_check->fetch();
-
-
-        $nueva_cantidad = $cantidad_actual + 1;
-        $stmt_update = $mysqli->prepare("UPDATE ban_user SET cantidad = ? WHERE id_user = ?");
-        $stmt_update->bind_param("ii", $nueva_cantidad, $user_id);
-        $stmt_update->execute();
-  
-    } else {
-        // No existe, crear nuevo registro
-
-        $stmt_insert = $mysqli->prepare("INSERT INTO ban_user (id_user, cantidad) VALUES (?, 1)");
-        $stmt_insert->bind_param("i", $user_id);
-        $stmt_insert->execute();
-
-    }
 
     // Actualizar la lavadora como alquilada
     $stmt2 = $mysqli->prepare("UPDATE lavadoras SET status = 'disponible' WHERE id = ?");
