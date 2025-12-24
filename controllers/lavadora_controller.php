@@ -155,4 +155,17 @@ if ($action == 'crear_lavadora') {
     
 }
 
+if ($action == 'eliminar_lavadora') {
+    $id = $_POST['id'];
+    
+    $stmt = $conn->prepare("UPDATE lavadoras SET status = 'eliminado' WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    
+    if ($stmt->execute()) {
+        echo 'ok';
+    } else {
+        echo 'error';
+    }
+}
+
 ?>

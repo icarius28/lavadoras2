@@ -11,11 +11,11 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
     $where = " negocio_id = '$negocio_id' AND ";
 }
 
-$sql = "SELECT * FROM proveedores WHERE $where nombre LIKE '%$search%' LIMIT $limit OFFSET $offset";
+$sql = "SELECT * FROM proveedores WHERE $where estado != 'eliminado' AND nombre LIKE '%$search%' LIMIT $limit OFFSET $offset";
 
 $result = $conn->query($sql);
 
-$sql_count = "SELECT COUNT(*) as total FROM proveedores WHERE $where nombre LIKE '%$search%'";
+$sql_count = "SELECT COUNT(*) as total FROM proveedores WHERE $where estado != 'eliminado' AND nombre LIKE '%$search%'";
 $count_result = $conn->query($sql_count);
 $total_proveedores = $count_result->fetch_assoc()['total'];
 $total_pages = ceil($total_proveedores / $limit);
@@ -70,6 +70,7 @@ $list_negocios = $conn->query($negocios);
                         <?php } else { ?>
                             <button class="btn btn-success btn-sm" onclick="cambiarStatusProveedor(<?= $row['id']; ?>, 'activo')">Activar</button>
                         <?php } ?>
+                        <button class="btn btn-danger btn-sm" onclick="eliminarProveedor(<?= $row['id']; ?>)">Eliminar</button>
                     </td>
                 </tr>
                 <?php } ?>
@@ -252,4 +253,34 @@ $('#formCrearProveedor').submit(function(e) {
         });
     });
 });
+
+function eliminarProveedor(id) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "El proveedor será marcado como eliminado y no aparecerá en los listados.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading('Eliminando...');
+            $.post('../controllers/proveedor_controller.php', { 
+                action: 'eliminar_proveedor', 
+                id: id 
+            }, function(response) {
+                if (response.trim() === 'ok') {
+                    Swal.fire('Eliminado', 'El proveedor ha sido eliminado.', 'success')
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', 'Hubo un problema al eliminar el proveedor.', 'error');
+                }
+            }).fail(function() {
+                Swal.fire('Error', 'Error de conexión.', 'error');
+            });
+        }
+    });
+}
 </script>

@@ -7,18 +7,18 @@ $offset = ($page - 1) * $limit;
 $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Obtener los usuarios filtrados
-$sql = "SELECT * FROM lavadoras WHERE codigo LIKE '%$search%' LIMIT $limit OFFSET $offset";
+$sql = "SELECT * FROM lavadoras WHERE status != 'eliminado' AND codigo LIKE '%$search%' LIMIT $limit OFFSET $offset";
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
     $negocio_id = (int) $_SESSION['negocio'];
-    $sql = "SELECT * FROM lavadoras WHERE negocio_id = '$negocio_id' AND codigo LIKE '%$search%' LIMIT $limit OFFSET $offset";
+    $sql = "SELECT * FROM lavadoras WHERE negocio_id = '$negocio_id' AND status != 'eliminado' AND codigo LIKE '%$search%' LIMIT $limit OFFSET $offset";
 }
 $result = $conn->query($sql);
 
 // Contar el total de usuarios para la paginación
-$sql_count = "SELECT COUNT(*) as total FROM lavadoras WHERE codigo LIKE '%$search%' ";
+$sql_count = "SELECT COUNT(*) as total FROM lavadoras WHERE status != 'eliminado' AND codigo LIKE '%$search%' ";
 if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
     $negocio_id = (int) $_SESSION['negocio'];
-    $sql_count = "SELECT COUNT(*) as total FROM lavadoras WHERE negocio_id = '$negocio_id' AND codigo LIKE '%$search%' ";
+    $sql_count = "SELECT COUNT(*) as total FROM lavadoras WHERE negocio_id = '$negocio_id' AND status != 'eliminado' AND codigo LIKE '%$search%' ";
 }
 $count_result = $conn->query($sql_count);
 $total_users = $count_result->fetch_assoc()['total'];
@@ -109,6 +109,7 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
                             <?php }else{ ?>
                                    <button class="btn btn-success btn-sm" onclick="devolver(<?php echo $row['id']; ?>)">Devolver</button>
                             <?php } ?>
+                            <button class="btn btn-danger btn-sm" onclick="eliminarLavadora(<?php echo $row['id']; ?>)">Eliminar</button>
                         </td>
                     </tr>
                 <?php } ?>
@@ -438,4 +439,34 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
             });
         });
     });
+
+function eliminarLavadora(id) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "La lavadora será marcada como eliminada y no aparecerá en los listados. El código quedará disponible para reutilizar.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading('Eliminando...');
+            $.post('../controllers/lavadora_controller.php', { 
+                action: 'eliminar_lavadora', 
+                id: id 
+            }, function(response) {
+                if (response.trim() === 'ok') {
+                    Swal.fire('Eliminado', 'La lavadora ha sido eliminada.', 'success')
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', 'Hubo un problema al eliminar la lavadora.', 'error');
+                }
+            }).fail(function() {
+                Swal.fire('Error', 'Error de conexión.', 'error');
+            });
+        }
+    });
+}
 </script>

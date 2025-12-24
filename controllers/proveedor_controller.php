@@ -56,4 +56,17 @@ if ($action == 'crear_proveedor') {
         echo 'error_proveedor';
     }
 }
+
+if ($action == 'eliminar_proveedor') {
+    $id = $_POST['id'];
+    
+    $stmt = $conn->prepare("UPDATE proveedores SET estado = 'eliminado' WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    
+    if ($stmt->execute()) {
+        echo 'ok';
+    } else {
+        echo 'error';
+    }
+}
 ?>
