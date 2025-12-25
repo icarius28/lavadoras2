@@ -210,7 +210,7 @@ function asignar_lavadora($mysqli, $data) {
     $id_lavadora = intval($data['id_lavadora'] ?? 0);
     $id_domiciliario = intval($data['id_domiciliario'] ?? 0);
     $nuevo_estado_en = $data['en'] ?? ''; // Puede ser 'delivery' o 'bodega'
-
+    $mysqli->set_charset("utf8mb4");
     // Validaciones básicas
     if ($id_lavadora <= 0 || $id_domiciliario <= 0 || !in_array($nuevo_estado_en, ['delivery', 'bodega'])) {
         echo json_encode(['status' => 'error', 'message' => 'Datos inválidos']);
@@ -265,7 +265,7 @@ function asignar_lavadora($mysqli, $data) {
 function lavadoras_de_negocio($mysqli, $data) {
     // Validar y obtener id del negocio
     $id_negocio = intval($data['id_negocio'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if ($id_negocio <= 0) {
         echo json_encode(['status' => 'error', 'message' => 'ID de negocio inválido', 'debug' => 'id_negocio recibido: ' . ($data['id_negocio'] ?? 'no enviado')]);
         return;
@@ -336,7 +336,7 @@ function lavadoras_de_negocio($mysqli, $data) {
 
 function get_pagos_payu($mysqli, $data) {
     $id_usuario = intval($data['id_usuario'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if (!$id_usuario) {
         echo json_encode([
             'status' => 'error',
@@ -366,7 +366,7 @@ function get_pagos_payu($mysqli, $data) {
 
 function get_pagos_realizados($mysqli, $data) {
     $id_usuario = intval($data['id_usuario'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if (!$id_usuario) {
         echo json_encode([
             'status' => 'error',
@@ -395,7 +395,7 @@ function get_pagos_realizados($mysqli, $data) {
 function getFMCByServicio($mysqli, $id_servicio, $tipo = 'usuario') {
     $id_servicio = intval($id_servicio);
     $tipo = strtolower($tipo);
-
+$mysqli->set_charset("utf8mb4");
     if ($id_servicio <= 0) {
         return null;
     }
@@ -433,7 +433,7 @@ function getUserFMC($mysqli, $id_usuario) {
     if ($id_usuario <= 0) {
         return null;
     }
-
+$mysqli->set_charset("utf8mb4");
     $sql = "SELECT fcm FROM usuarios WHERE id = $id_usuario LIMIT 1";
     $result = $mysqli->query($sql);
 
@@ -447,7 +447,7 @@ function getUserFMC($mysqli, $id_usuario) {
 function save_fcm($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
     $fcm = $mysqli->real_escape_string($data['token'] ?? '');
-
+$mysqli->set_charset("utf8mb4");
     if ($userId == 0) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
         return;
@@ -468,7 +468,7 @@ function save_fcm($mysqli, $data) {
 
 
 function send_chat_message($mysqli, $data) {
-   
+   $mysqli->set_charset("utf8mb4");
     $id_alquiler = intval($data['id_alquiler'] ?? 0);
     $id_usuario = intval($data['id_usuario'] ?? 0);
     $id_domiciliario = intval($data['id_domiciliario'] ?? 0);
@@ -511,7 +511,7 @@ function send_chat_message($mysqli, $data) {
 
 function get_chat_messages($mysqli, $data) {
     $id_alquiler = intval($data['id_alquiler'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if (!$id_alquiler) {
         echo json_encode([
             'status' => 'error',
@@ -540,7 +540,7 @@ function get_chat_messages($mysqli, $data) {
 function mark_chat_read($mysqli, $data) {
     $id_alquiler = intval($data['id_alquiler'] ?? 0);
     $remitente = $mysqli->real_escape_string($data['remitente'] ?? '');
-
+$mysqli->set_charset("utf8mb4");
     if (!$id_alquiler || !$remitente) {
         echo json_encode([
             'status' => 'error',
@@ -571,7 +571,7 @@ function mark_chat_read($mysqli, $data) {
 
 function get_banner($mysqli, $data) {
     $result = $mysqli->query("SELECT banner FROM config_general WHERE id = 1 LIMIT 1");
-
+$mysqli->set_charset("utf8mb4");
     if ($result && $config = $result->fetch_assoc()) {
         echo json_encode([
             'status' => 'ok',
@@ -587,6 +587,7 @@ function get_banner($mysqli, $data) {
 
 
 function get_config_general($mysqli, $data) {
+    $mysqli->set_charset("utf8mb4");
     $result = $mysqli->query("SELECT *
         FROM config_general WHERE id = 1 LIMIT 1");
 
@@ -610,7 +611,7 @@ function get_config_general($mysqli, $data) {
 
 function check_cancelacion_permitida($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
-
+$mysqli->set_charset("utf8mb4");
     if (!$user_id) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario no proporcionado']);
         return;
@@ -654,7 +655,7 @@ function recaudado($mysqli, $data) {
      $user_id = $data['user_id'] ?? 0;
     // status_sevicio 1 = pendiente, 2 = en curso, 3 = por retirar, 4 = finalizado
     $result = $mysqli->query("SELECT monedero FROM usuarios where id = $user_id LIMIT 1");
-
+$mysqli->set_charset("utf8mb4");
     if ($usuario = $result->fetch_assoc()) {
         echo json_encode(['status' => 'ok', 'recaudado' => $usuario['monedero']]);
     } else {
@@ -665,7 +666,7 @@ function recaudado($mysqli, $data) {
 function get_detail_service_finish($mysqli, $data) {
     $id_alquiler = $data['id_alquiler'] ?? 0;
     $user_id = $data['user_id'] ?? 0;
-    
+    $mysqli->set_charset("utf8mb4");
 
     if (!$id_alquiler) {
         echo json_encode(['status' => 'error', 'message' => 'ID de alquiler no proporcionado']);
@@ -718,7 +719,7 @@ function recoger($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
     $id_alquiler = $data['id_alquiler'] ?? null;
     $total = $data['total'] ?? null;
-
+$mysqli->set_charset("utf8mb4");
 
     if (!$user_id || $id_alquiler === null ) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
@@ -766,7 +767,7 @@ function recoger($mysqli, $data) {
 
 function pendiente_recoger($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
-
+$mysqli->set_charset("utf8mb4");
     if (!$user_id) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario no proporcionado']);
         return;
@@ -800,7 +801,7 @@ function pendiente_recoger($mysqli, $data) {
 function update_password($mysqli, $data) {
       $contrasena = $data['password'] ?? '';
     $id = $data['id'] ?? 0;
-
+$mysqli->set_charset("utf8mb4");
     if (empty($contrasena) || empty($id)) {
         echo json_encode(['status' => 'error', 'message' => 'Faltan datos']);
         return;
@@ -821,7 +822,7 @@ function update_password($mysqli, $data) {
 }
 
 function terminos_delivery($mysqli, $data) {
- 
+ $mysqli->set_charset("utf8mb4");
     // status_sevicio 1 = pendiente, 2 = en curso, 3 = por retirar, 4 = finalizado
     $result = $mysqli->query("SELECT terminos_delivery, terminos_uso_delivery FROM terminos_condiciones ");
 
@@ -833,7 +834,7 @@ function terminos_delivery($mysqli, $data) {
 }
 
 function terminos_cliente($mysqli, $data) {
- 
+ $mysqli->set_charset("utf8mb4");
     // status_sevicio 1 = pendiente, 2 = en curso, 3 = por retirar, 4 = finalizado
     $result = $mysqli->query("SELECT terminos, terminos_uso FROM terminos_condiciones ");
 
@@ -847,7 +848,7 @@ function terminos_cliente($mysqli, $data) {
 
 function get_ubication_domicialiario_from_deviery($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
-
+$mysqli->set_charset("utf8mb4");
     $result = $mysqli->query("
         SELECT 
             alquileres.latitud AS latitud_servicio, 
@@ -884,7 +885,7 @@ function get_ubication_domicialiario_from_deviery($mysqli, $data) {
 
 function forgot_password($mysqli, $data) {
     $email = $data['email'] ?? null;
-
+$mysqli->set_charset("utf8mb4");
     if (!$email) {
         echo json_encode(['status' => 'error', 'message' => 'Correo electrónico requerido']);
         return;
@@ -925,7 +926,7 @@ function forgot_password($mysqli, $data) {
 
 function servicio_pendiente($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
-
+$mysqli->set_charset("utf8mb4");
     if (!$user_id) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario no proporcionado']);
         return;
@@ -961,7 +962,7 @@ function cancelar_servicio($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
     $id_alquiler = $data['id_alquiler'] ?? null;
     $id_motivo = $data['motivo'] ?? null;
-
+$mysqli->set_charset("utf8mb4");
     if (!$user_id || $id_alquiler === null) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
         return;
@@ -1048,7 +1049,7 @@ function cancelar_servicio($mysqli, $data) {
 
 
 function get_motivos($mysqli, $data) {
-
+$mysqli->set_charset("utf8mb4");
     $result = $mysqli->query("SELECT * FROM motivo ");
 
     $motivos = [];
@@ -1066,7 +1067,7 @@ function get_motivos($mysqli, $data) {
 
 function get_rental_all_delivery($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     $result = $mysqli->query("SELECT * FROM alquileres WHERE conductor_id = $userId ");
 
     $rentals = [];
@@ -1084,7 +1085,7 @@ function get_rental_all_delivery($mysqli, $data) {
 function entregar_servicio($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
     $id_alquiler = $data['id_alquiler'] ?? null;
-
+$mysqli->set_charset("utf8mb4");
     if (!$user_id || $id_alquiler === null) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
         return;
@@ -1139,7 +1140,7 @@ function aceptar_servicio($mysqli, $data) {
     global $porcentaje;
     $user_id = intval($data['user_id'] ?? 0); // Este es el conductor
     $id_alquiler = intval($data['id_alquiler'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if (!$user_id || !$id_alquiler) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
         return;
@@ -1231,7 +1232,7 @@ function calcularPorcentaje($valor, $porcentaje) {
 
 function get_servicio_solicitud_domicialiario($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
-
+$mysqli->set_charset("utf8mb4");
     if (!$user_id) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario no proporcionado']);
         return;
@@ -1277,7 +1278,7 @@ function get_servicio_solicitud_domicialiario($mysqli, $data) {
 function get_detail_service($mysqli, $data) {
     $id_alquiler = $data['id_alquiler'] ?? 0;
     $user_id = $data['user_id'] ?? 0;
-    
+    $mysqli->set_charset("utf8mb4");
 
     if (!$id_alquiler) {
         echo json_encode(['status' => 'error', 'message' => 'ID de alquiler no proporcionado']);
@@ -1331,7 +1332,7 @@ function update_ubicacion_domiciliario($mysqli, $data) {
     $user_id = $data['id_usuario'] ?? 0;
     $latitud = $data['latitud'] ?? null;
     $longitud = $data['longitud'] ?? null;
-
+$mysqli->set_charset("utf8mb4");
     if (!$user_id || $latitud === null || $longitud === null) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
         return;
@@ -1361,7 +1362,7 @@ function register($mysqli, $data) {
     $usuario = $mysqli->real_escape_string($data['usuario'] ?? '');
     $contrasena = $mysqli->real_escape_string($data['password'] ?? '');
     $google_token = $mysqli->real_escape_string($data['google_token'] ?? '');
-
+$mysqli->set_charset("utf8mb4");
     if ($correo == '') {
         header('Content-Type: application/json');
         echo json_encode(['status' => 'error', 'message' => 'Correo requerido']);
@@ -1413,7 +1414,7 @@ function login($mysqli, $data) {
 
 function mark_delivered_or_collected($mysqli, $data, $type) {
     $service_id = (int)($data['service_id'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if ($service_id <= 0) {
         echo json_encode(['status' => 'error', 'message' => 'ID de servicio inválido']);
         return;
@@ -1456,7 +1457,7 @@ function get_delivery_service($mysqli, $data) {
     $delivery_id = $mysqli->real_escape_string($data['delivery_id'] ?? '');
     // status_sevicio 1 = pendiente, 2 = en curso, 3 = por retirar, 4 = finalizado
     $result = $mysqli->query("SELECT * FROM alquileres WHERE status_servicio in (1,3) AND conductor_id = $delivery_id LIMIT 1");
-
+$mysqli->set_charset("utf8mb4");
     if ($rental = $result->fetch_assoc()) {
         echo json_encode(['status' => 'ok', 'rental' => $rental]);
     } else {
@@ -1469,7 +1470,7 @@ function accept_service($mysqli, $data) {
     $delivery_id = $mysqli->real_escape_string($data['delivery_id'] ?? '');
     $service_id = $mysqli->real_escape_string($data['service_id'] ?? '');
 
- 
+ $mysqli->set_charset("utf8mb4");
     $query = "UPDATE alquileres SET conductor_id = $delivery_id WHERE id = $service_id";
     
     $token = getFMCByServicio($mysqli, $service_id, $tipo = 'usuario');
@@ -1488,7 +1489,7 @@ function accept_service($mysqli, $data) {
 function login_domiciliario($mysqli, $data) {
     $usuario = $mysqli->real_escape_string($data['correo'] ?? '');
     $contrasena = $mysqli->real_escape_string($data['contrasena'] ?? '');
-
+$mysqli->set_charset("utf8mb4");
     if ($usuario == '' || $contrasena == '') {
         echo json_encode(['status' => 'error', 'message' => 'Datos requeridos']);
         return;
@@ -1509,7 +1510,7 @@ function login_domiciliario($mysqli, $data) {
 
 function login_google($mysqli, $data) {
     $correo = $mysqli->real_escape_string($data['correo'] ?? '');
-
+$mysqli->set_charset("utf8mb4");
     if ($correo == '') {
         echo json_encode(['status' => 'error', 'message' => 'Correo requerido']);
         return;
@@ -1525,10 +1526,10 @@ function login_google($mysqli, $data) {
 }
 
 function rent_machine($mysqli, $data) {
-    global $km, $global_tarifa;
+    global $km, $global_tarifa, $porcentaje;
     $userId = intval($data['user_id'] ?? 0);
     $tiempo = intval($data['tiempo'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
 
     if ($userId == 0 || $tiempo == 0) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
@@ -1602,8 +1603,8 @@ function rent_machine($mysqli, $data) {
         $mensaje = "Nuevo servicio disponible: " . $tipo_lavadora_req;
         
         // Insert Alquiler con lavadora_id = NULL y negocio_id = NULL
-        $query = "INSERT INTO alquileres (user_id, lavadora_id, tipo_lavadora, tiempo_alquiler, status, fecha_inicio, latitud, longitud, valor_servicio, negocio_id, metodo_pago, total, status_servicio, conductor_id)
-                  VALUES ($userId, NULL, '$tipo_lavadora_req', $tiempo, 'activo', NOW(), '$latitud', '$longitud', $tarifa, NULL, '$metodo', $total_amount, 1, 0)";
+        $query = "INSERT INTO alquileres (user_id, lavadora_id, tipo_lavadora, tiempo_alquiler, status, fecha_inicio, latitud, longitud, valor_servicio, negocio_id, metodo_pago, total, status_servicio, conductor_id,porcentaje )
+                  VALUES ($userId, NULL, '$tipo_lavadora_req', $tiempo, 'activo', NOW(), '$latitud', '$longitud', $tarifa, NULL, '$metodo', $total_amount, 1, 0, $porcentaje )";
 
         if ($mysqli->query($query)) {
             $newRentalId = $mysqli->insert_id;
@@ -1628,7 +1629,7 @@ function rent_machine($mysqli, $data) {
 
 function sum_rent_machine($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if ($userId <= 0) {
         return [
             'status' => 'error',
@@ -1674,7 +1675,7 @@ function sum_rent_machine($mysqli, $data) {
 function finish_rental($mysqli, $data) {
     global $config_general;
     $rentalId = intval($data['rental_id'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if ($rentalId == 0) {
         echo json_encode(['status' => 'error', 'message' => 'ID de alquiler requerido']);
         return;
@@ -1727,7 +1728,7 @@ function finish_rental($mysqli, $data) {
 
 function get_user($mysqli, $data) {
     $userId = intval($data['id'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     $result = $mysqli->query("SELECT * FROM usuarios WHERE id = $userId LIMIT 1");
 
     if ($user = $result->fetch_assoc()) {
@@ -1739,8 +1740,9 @@ function get_user($mysqli, $data) {
 
 function get_rental($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
+$mysqli->set_charset("utf8mb4");
 
-    $result = $mysqli->query("SELECT * FROM alquileres WHERE user_id = $userId AND status_servicio in (1,2,3) LIMIT 1");
+    $result = $mysqli->query("SELECT * FROM alquileres WHERE user_id = $userId AND status_servicio in (1,2,3,6) LIMIT 1");
 
     if ($rental = $result->fetch_assoc()) {
         echo json_encode(['status' => 'ok', 'rental' => $rental]);
@@ -1751,8 +1753,9 @@ function get_rental($mysqli, $data) {
 
 function get_rental_all($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
-
+    $mysqli->set_charset("utf8mb4");
     $result = $mysqli->query("SELECT * FROM alquileres WHERE user_id = $userId ");
+$mysqli->set_charset("utf8mb4");
 
     $rentals = [];
     while ($rental = $result->fetch_assoc()) {
@@ -1774,7 +1777,7 @@ function lavadoras_asignadas($mysqli, $data) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
         return;
     }
-
+$mysqli->set_charset("utf8mb4");
     // Obtener TODAS las lavadoras asignadas al domiciliario (disponibles y alquiladas)
     // Usar prepared statement para evitar SQL injection
     $stmt = $mysqli->prepare("
@@ -1837,7 +1840,7 @@ function edit_user($mysqli, $data) {
     $apellido = $mysqli->real_escape_string($data['apellido'] ?? '');
     $telefono = $mysqli->real_escape_string($data['telefono'] ?? '');
     $direccion = $mysqli->real_escape_string($data['direccion'] ?? '');
-
+$mysqli->set_charset("utf8mb4");
     if ($userId == 0) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
         return;
@@ -1881,7 +1884,7 @@ function available_machines($mysqli, $data) {
             'nocturno' => 0
         ];
         
-        
+
 
 
         // Buscar TODAS las lavadoras disponibles de ese tipo
@@ -1890,13 +1893,15 @@ function available_machines($mysqli, $data) {
                   JOIN usuarios ON lavadoras.id_domiciliario = usuarios.id
                   WHERE lavadoras.status = 'disponible' AND lavadoras.type = '$tipo'";
                   
-     
-          
+     $mysqli->set_charset("utf8mb4");
 
+          
+        $result = $mysqli->query($query);
+ 
         
         // Iterar sobre todas las lavadoras candidatas
         while ($lav = $result->fetch_assoc()) {
-            echo "<br> ".$tipo;
+    
             // Verificar rango y monedero
             $is_in_range = estaDentroDelRango($latitud, $longitud, $lav['latitud'], $lav['longitud'], $km);
           
@@ -2000,6 +2005,7 @@ function estaDentroDelRango($lat1, $lon1, $lat2, $lon2, $km_maximo) {
 
 function get_ubication_domicialiario($mysqli, $data) {
     $user_id = $data['user_id'] ?? 0;
+    $mysqli->set_charset("utf8mb4");
     $result = $mysqli->query("SELECT latitud, longitud FROM usuarios WHERE id = $user_id");
     $row = $result->fetch_assoc();
     echo json_encode(['status' => 'ok', "ubication" => [ 'latitud' => $row['latitud'], 'longitud' => $row['longitud']]]);
@@ -2023,7 +2029,7 @@ function calcularDistancia($lat1, $lon1, $lat2, $lon2) {
 
 function simulate_collection($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     $temporalUserDelivery = 25;
 
     if ($userId == 0) {
@@ -2047,7 +2053,7 @@ function simulate_delivery($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
 
     $temporalUserDelivery = 25;
-
+$mysqli->set_charset("utf8mb4");
     if ($userId == 0) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
         return;
@@ -2111,7 +2117,7 @@ function get_notificaciones($mysqli, $data) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
         return;
     }
-
+$mysqli->set_charset("utf8mb4");
     // Obtener notificaciones basadas en servicios del usuario
     if ($tipo_usuario === 'cliente') {
         // Notificaciones para clientes basadas en sus alquileres
@@ -2222,7 +2228,7 @@ function registrar_notificacion($mysqli, $data) {
     $mensaje = $mysqli->real_escape_string($data['mensaje'] ?? '');
     $tipo_notificacion = $mysqli->real_escape_string($data['tipo_notificacion'] ?? 'general');
     $id_relacionado = intval($data['id_relacionado'] ?? 0);
-
+$mysqli->set_charset("utf8mb4");
     if ($user_id <= 0 || empty($titulo) || empty($mensaje)) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
         return;
@@ -2266,7 +2272,7 @@ function get_notificaciones_usuario($mysqli, $data) {
     $user_id = intval($data['user_id'] ?? 0);
     $solo_no_leidas = isset($data['solo_no_leidas']) ? (bool)$data['solo_no_leidas'] : false;
     $limit = intval($data['limit'] ?? 50);
-
+$mysqli->set_charset("utf8mb4");
     if ($user_id <= 0) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
         return;
@@ -2329,7 +2335,7 @@ function marcar_notificacion_leida($mysqli, $data) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
         return;
     }
-
+$mysqli->set_charset("utf8mb4");
     $stmt = $mysqli->prepare("
         UPDATE notificaciones_usuarios 
         SET leida = 1 
@@ -2352,81 +2358,9 @@ function marcar_notificacion_leida($mysqli, $data) {
     $stmt->close();
 }
 
-function confirmar_entrega_lavadora($mysqli, $data) {
-    $user_id = intval($data['user_id'] ?? 0);
-    $id_alquiler = intval($data['id_alquiler'] ?? 0);
-
-    if (!$user_id || !$id_alquiler) {
-        echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
-        return;
-    }
-
-    // Verificar que el servicio existe y está en status_servicio = 6 (en proceso de entrega)
-    $stmt_check = $mysqli->prepare("SELECT id, conductor_id, user_id, status_servicio FROM alquileres WHERE id = ?");
-    $stmt_check->bind_param("i", $id_alquiler);
-    $stmt_check->execute();
-    $result = $stmt_check->get_result();
-
-    if ($result->num_rows === 0) {
-        echo json_encode(['status' => 'error', 'message' => 'Servicio no encontrado']);
-        return;
-    }
-
-    $servicio = $result->fetch_assoc();
-    $stmt_check->close();
-
-    // Verificar que el usuario es el domiciliario asignado
-    if ($servicio['conductor_id'] != $user_id) {
-        echo json_encode(['status' => 'error', 'message' => 'No tienes permiso para confirmar esta entrega']);
-        return;
-    }
-
-    // Verificar que el servicio está en status 6 (en proceso de entrega)
-    if ($servicio['status_servicio'] != 6) {
-        echo json_encode([
-            'status' => 'error', 
-            'message' => 'El servicio no está en proceso de entrega',
-            'current_status' => $servicio['status_servicio']
-        ]);
-        return;
-    }
-
-    // Actualizar status_servicio de 6 a 2 (entregada/en curso)
-    $fecha_entrega = date('Y-m-d H:i:s');
-    $stmt = $mysqli->prepare("UPDATE alquileres SET status_servicio = 2, fecha_entrega = ? WHERE id = ?");
-    $stmt->bind_param("si", $fecha_entrega, $id_alquiler);
-
-    if ($stmt->execute()) {
-        // Enviar notificación al cliente
-        $token = getFMCByServicio($mysqli, $id_alquiler, 'usuario');
-        
-        if ($token) {
-            enviarNotificacionFCM(
-                $token, 
-                "Lavadora Entregada", 
-                "La lavadora ha sido entregada en tu ubicación. ¡Disfruta del servicio!", 
-                $id_alquiler, 
-                'lavadora_entregada'
-            );
-        }
-
-        echo json_encode([
-            'status' => 'ok', 
-            'message' => 'Entrega confirmada exitosamente',
-            'id_alquiler' => $id_alquiler,
-            'nuevo_status' => 2,
-            'fecha_entrega' => $fecha_entrega
-        ]);
-    } else {
-        echo json_encode(['status' => 'error', 'message' => 'Error al confirmar entrega: ' . $mysqli->error]);
-    }
-
-    $stmt->close();
-}
-
 function get_servicios_cercanos($mysqli, $data) {
     global $km;
-    
+    $mysqli->set_charset("utf8mb4");
     $user_id = intval($data['user_id'] ?? 0);
     $latitud = floatval($data['latitud'] ?? 0);
     $longitud = floatval($data['longitud'] ?? 0);
@@ -2507,7 +2441,82 @@ function get_servicios_cercanos($mysqli, $data) {
     ]);
 }
 
+
+function confirmar_entrega_lavadora($mysqli, $data) {
+    $user_id = intval($data['user_id'] ?? 0);
+    $id_alquiler = intval($data['id_alquiler'] ?? 0);
+
+    if (!$user_id || !$id_alquiler) {
+        echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
+        return;
+    }
+
+    // Verificar que el servicio existe y está en status_servicio = 6 (en proceso de entrega)
+    $stmt_check = $mysqli->prepare("SELECT id, conductor_id, user_id, status_servicio FROM alquileres WHERE id = ?");
+    $stmt_check->bind_param("i", $id_alquiler);
+    $stmt_check->execute();
+    $result = $stmt_check->get_result();
+
+    if ($result->num_rows === 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Servicio no encontrado']);
+        return;
+    }
+
+    $servicio = $result->fetch_assoc();
+    $stmt_check->close();
+
+    // Verificar que el usuario es el domiciliario asignado
+    if ($servicio['conductor_id'] != $user_id) {
+        echo json_encode(['status' => 'error', 'message' => 'No tienes permiso para confirmar esta entrega']);
+        return;
+    }
+
+    // Verificar que el servicio está en status 6 (en proceso de entrega)
+    if ($servicio['status_servicio'] != 6) {
+        echo json_encode([
+            'status' => 'error', 
+            'message' => 'El servicio no está en proceso de entrega',
+            'current_status' => $servicio['status_servicio']
+        ]);
+        return;
+    }
+
+    // Actualizar status_servicio de 6 a 2 (entregada/en curso)
+    $fecha_entrega = date('Y-m-d H:i:s');
+    $stmt = $mysqli->prepare("UPDATE alquileres SET status_servicio = 2, fecha_inicio = ? WHERE id = ?");
+    $stmt->bind_param("si", $fecha_entrega, $id_alquiler);
+
+    if ($stmt->execute()) {
+        // Enviar notificación al cliente
+        $token = getFMCByServicio($mysqli, $id_alquiler, 'usuario');
+        
+        if ($token) {
+            enviarNotificacionFCM(
+                $token, 
+                "Lavadora Entregada", 
+                "La lavadora ha sido entregada en tu ubicación. ¡Disfruta del servicio!", 
+                $id_alquiler, 
+                'lavadora_entregada'
+            );
+        }
+
+        echo json_encode([
+            'status' => 'ok', 
+            'message' => 'Entrega confirmada exitosamente',
+            'id_alquiler' => $id_alquiler,
+            'nuevo_status' => 2,
+            'fecha_entrega' => $fecha_entrega
+        ]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Error al confirmar entrega: ' . $mysqli->error]);
+    }
+
+    $stmt->close();
+}
+
+
 function log_api($mysqli, $accion, $entrada, $salida) {
+    $mysqli->set_charset("utf8mb4");
     $stmt = $mysqli->prepare("INSERT INTO api_logs (accion, entrada, salida) VALUES (?, ?, ?)");
     $entrada_json = json_encode($entrada);
     $salida_json = json_encode($salida);
