@@ -13,9 +13,6 @@ if ($mysqli->connect_error) {
     die(json_encode(['status' => 'error', 'message' => 'Error de conexión']));
 }
 
-// Configurar charset UTF-8 para evitar problemas con json_encode
-$mysqli->set_charset("utf8mb4");
-
 $result = $mysqli->query("SELECT * FROM config_general LIMIT 1");
 
 if ($config_general = $result->fetch_assoc()) {
@@ -201,6 +198,9 @@ switch ($action) {
     case 'get_servicios_cercanos':
         get_servicios_cercanos($mysqli, $data);
     break;
+    case 'confirmar_entrega_lavadora':
+        confirmar_entrega_lavadora($mysqli, $data);
+    break;
     default:
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida']);
         break;
@@ -297,35 +297,15 @@ function lavadoras_de_negocio($mysqli, $data) {
 
     $lavadoras = [];
     while ($row = $result->fetch_assoc()) {
-        // Limpiar datos para asegurar compatibilidad con JSON
-        $clean_row = [];
-        foreach ($row as $key => $value) {
-            if (is_string($value)) {
-                // Asegurar que todos los strings sean UTF-8 válidos
-                $clean_row[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
-            } else {
-                $clean_row[$key] = $value;
-            }
-        }
-        $lavadoras[] = $clean_row;
+        $lavadoras[] = $row;
     }
 
-
     if (!empty($lavadoras)) {
-        $response = ['status' => 'ok', 'disponibles' => $lavadoras, 'total' => count($lavadoras)];
-        $json = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        
-        if ($json === false) {
-            // Si json_encode falla, mostrar el error
-            echo json_encode([
-                'status' => 'error', 
-                'message' => 'Error al codificar JSON', 
-                'json_error' => json_last_error_msg(),
-                'data_count' => count($lavadoras)
-            ]);
-        } else {
-            echo $json;
-        }
+        echo json_encode(
+    ['status' => 'ok', 'disponibles' => $lavadoras, 'total' => count($lavadoras)],
+    JSON_INVALID_UTF8_SUBSTITUTE
+);
+
     } else {
         // Verificar si existen lavadoras en la base de datos para este negocio
         $check_stmt = $mysqli->prepare("SELECT COUNT(*) as total FROM lavadoras WHERE negocio_id = ?");
@@ -347,6 +327,8 @@ function lavadoras_de_negocio($mysqli, $data) {
 
     $stmt->close();
 }
+
+
 
 
 
@@ -1020,6 +1002,7 @@ function cancelar_servicio($mysqli, $data) {
         // Si no existe, insertar con cantidad = 1
         $cantidadInicial = 1;
         $stmt_insert = $mysqli->prepare("INSERT INTO ban_user (id_user, cantidad) VALUES (?, ?)");
+        
         $stmt_insert->bind_param("ii", $user_id, $cantidadInicial);
         $stmt_insert->execute();
         $stmt_insert->close();
@@ -1031,7 +1014,7 @@ function cancelar_servicio($mysqli, $data) {
     $fecha_actual = date('Y-m-d H:i:s');
 
     // Actualizar la tabla alquileres
-    $stmt1 = $mysqli->prepare("UPDATE alquileres SET motivo = ?, status_servicio = 5 WHERE id = ?");
+    $stmt1 = $mysqli->prepare("UPDATE alquileres SET status='finalizado', motivo = ?, status_servicio = 5 WHERE id = ?");
     $stmt1->bind_param("ii", $id_motivo, $id_alquiler);
     
     if (!$stmt1->execute()) {
@@ -1200,7 +1183,7 @@ function aceptar_servicio($mysqli, $data) {
             $fecha_actual = date('Y-m-d H:i:s');
             
             // Update Alquiler
-            $stmt = $mysqli->prepare("UPDATE alquileres SET conductor_id = ?, lavadora_id = ?, fecha_aceptado = ?, status_servicio = 2 WHERE id = ?");
+            $stmt = $mysqli->prepare("UPDATE alquileres SET conductor_id = ?, lavadora_id = ?, fecha_aceptado = ?, status_servicio = 6 WHERE id = ?");
             $stmt->bind_param("iisi", $user_id, $idLavadoraAsignar, $fecha_actual, $id_alquiler);
             
             if ($stmt->execute()) {
@@ -1838,7 +1821,8 @@ function lavadoras_asignadas($mysqli, $data) {
     }
 
     if (count($asings) > 0) {
-        echo json_encode(['status' => 'ok', 'asignadas' => $asings]);
+
+        echo json_encode(['status' => 'ok', 'asignadas' => $asings],JSON_INVALID_UTF8_SUBSTITUTE);
     } else {
         echo json_encode(['status' => 'ok', 'asignadas' => []]);
     }
@@ -1896,32 +1880,42 @@ function available_machines($mysqli, $data) {
             '24horas' => 0,
             'nocturno' => 0
         ];
+        
+        
+
 
         // Buscar TODAS las lavadoras disponibles de ese tipo
         $query = "SELECT lavadoras.*, usuarios.latitud, usuarios.longitud, usuarios.monedero 
                   FROM lavadoras
                   JOIN usuarios ON lavadoras.id_domiciliario = usuarios.id
                   WHERE lavadoras.status = 'disponible' AND lavadoras.type = '$tipo'";
-        
-        $result = $mysqli->query($query);
+                  
+     
+          
+
         
         // Iterar sobre todas las lavadoras candidatas
         while ($lav = $result->fetch_assoc()) {
+            echo "<br> ".$tipo;
             // Verificar rango y monedero
             $is_in_range = estaDentroDelRango($latitud, $longitud, $lav['latitud'], $lav['longitud'], $km);
-            
+          
             if ($is_in_range && $lav['monedero'] >= $valor_minimo) {
+                
+            
                 // Es válida
                 $countDisponibles++;
-                
+                    
                 // Guardamos la primera válida como ejemplo para devolver ID y Precios
                 if ($ejemploLavadora === null) {
-                    $ejemploLavadora = $lav;
+                    $ejemploLavadora = $lav; 
                     
                     // Cargar tarifas del negocio de esta lavadora
                     $id_negocio = $lav['negocio_id'];
                     $tarifas_query = "SELECT tipo_servicio, precio FROM precios_lavado 
                                       WHERE tipo_lavadora = '$tipo' AND id_negocio = $id_negocio";
+                                      
+    
                     $tarifas_result = $mysqli->query($tarifas_query);
                     
                     // Tarifa base global por defecto
@@ -2353,6 +2347,78 @@ function marcar_notificacion_leida($mysqli, $data) {
         echo json_encode(['status' => 'ok', 'message' => 'Notificación marcada como leída']);
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Error al actualizar notificación']);
+    }
+
+    $stmt->close();
+}
+
+function confirmar_entrega_lavadora($mysqli, $data) {
+    $user_id = intval($data['user_id'] ?? 0);
+    $id_alquiler = intval($data['id_alquiler'] ?? 0);
+
+    if (!$user_id || !$id_alquiler) {
+        echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
+        return;
+    }
+
+    // Verificar que el servicio existe y está en status_servicio = 6 (en proceso de entrega)
+    $stmt_check = $mysqli->prepare("SELECT id, conductor_id, user_id, status_servicio FROM alquileres WHERE id = ?");
+    $stmt_check->bind_param("i", $id_alquiler);
+    $stmt_check->execute();
+    $result = $stmt_check->get_result();
+
+    if ($result->num_rows === 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Servicio no encontrado']);
+        return;
+    }
+
+    $servicio = $result->fetch_assoc();
+    $stmt_check->close();
+
+    // Verificar que el usuario es el domiciliario asignado
+    if ($servicio['conductor_id'] != $user_id) {
+        echo json_encode(['status' => 'error', 'message' => 'No tienes permiso para confirmar esta entrega']);
+        return;
+    }
+
+    // Verificar que el servicio está en status 6 (en proceso de entrega)
+    if ($servicio['status_servicio'] != 6) {
+        echo json_encode([
+            'status' => 'error', 
+            'message' => 'El servicio no está en proceso de entrega',
+            'current_status' => $servicio['status_servicio']
+        ]);
+        return;
+    }
+
+    // Actualizar status_servicio de 6 a 2 (entregada/en curso)
+    $fecha_entrega = date('Y-m-d H:i:s');
+    $stmt = $mysqli->prepare("UPDATE alquileres SET status_servicio = 2, fecha_entrega = ? WHERE id = ?");
+    $stmt->bind_param("si", $fecha_entrega, $id_alquiler);
+
+    if ($stmt->execute()) {
+        // Enviar notificación al cliente
+        $token = getFMCByServicio($mysqli, $id_alquiler, 'usuario');
+        
+        if ($token) {
+            enviarNotificacionFCM(
+                $token, 
+                "Lavadora Entregada", 
+                "La lavadora ha sido entregada en tu ubicación. ¡Disfruta del servicio!", 
+                $id_alquiler, 
+                'lavadora_entregada'
+            );
+        }
+
+        echo json_encode([
+            'status' => 'ok', 
+            'message' => 'Entrega confirmada exitosamente',
+            'id_alquiler' => $id_alquiler,
+            'nuevo_status' => 2,
+            'fecha_entrega' => $fecha_entrega
+        ]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Error al confirmar entrega: ' . $mysqli->error]);
     }
 
     $stmt->close();
