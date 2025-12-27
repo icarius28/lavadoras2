@@ -1184,8 +1184,9 @@ $mysqli->set_charset("utf8mb4");
             $fecha_actual = date('Y-m-d H:i:s');
             
             // Update Alquiler
-            $stmt = $mysqli->prepare("UPDATE alquileres SET conductor_id = ?, lavadora_id = ?, fecha_aceptado = ?, status_servicio = 6 WHERE id = ?");
-            $stmt->bind_param("iisi", $user_id, $idLavadoraAsignar, $fecha_actual, $id_alquiler);
+            // Update Alquiler
+            $stmt = $mysqli->prepare("UPDATE alquileres SET conductor_id = ?, lavadora_id = ?, fecha_aceptado = ?, status_servicio = 6, negocio_id = ? WHERE id = ?");
+            $stmt->bind_param("iisii", $user_id, $idLavadoraAsignar, $fecha_actual, $negocio_domiciliario, $id_alquiler);
             
             if ($stmt->execute()) {
                 // Update Lavadora status
@@ -1529,10 +1530,17 @@ function rent_machine($mysqli, $data) {
     global $km, $global_tarifa, $porcentaje;
     $userId = intval($data['user_id'] ?? 0);
     $tiempo = intval($data['tiempo'] ?? 0);
-$mysqli->set_charset("utf8mb4");
+    $mysqli->set_charset("utf8mb4");
 
     if ($userId == 0 || $tiempo == 0) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
+        return;
+    }
+
+    // Evitar duplicados: Verificar si ya existe una solicitud pendiente creada hace menos de 2 minutos
+    $check_dup = $mysqli->query("SELECT id FROM alquileres WHERE user_id = $userId AND status_servicio = 1 AND fecha_inicio > DATE_SUB(NOW(), INTERVAL 2 MINUTE) LIMIT 1");
+    if ($check_dup && $check_dup->num_rows > 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Ya tienes una solicitud en proceso.']);
         return;
     }
     $latitud = floatval($data['latitud'] ?? 0);
