@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
+date_default_timezone_set('America/Bogota');
 
 $host = "localhost";
 $user = "alquilav_ndb";
@@ -62,6 +63,12 @@ switch ($action) {
         break;
     case 'edit_user':
         edit_user($mysqli, $data);
+        break;
+    case 'change_status':
+        change_status($mysqli, $data);
+        break;
+    case 'get_status_driver':
+        get_status_driver($mysqli, $data);
         break;
     case 'accept_service':
         accept_service($mysqli, $data);
@@ -200,6 +207,9 @@ switch ($action) {
     break;
     case 'confirmar_entrega_lavadora':
         confirmar_entrega_lavadora($mysqli, $data);
+    break;
+    case 'get_user_strikes':
+        get_user_strikes($mysqli, $data);
     break;
     default:
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida']);
@@ -1184,9 +1194,12 @@ $mysqli->set_charset("utf8mb4");
             $fecha_actual = date('Y-m-d H:i:s');
             
             // Update Alquiler
+            
             // Update Alquiler
+
             $stmt = $mysqli->prepare("UPDATE alquileres SET conductor_id = ?, lavadora_id = ?, fecha_aceptado = ?, status_servicio = 6, negocio_id = ? WHERE id = ?");
             $stmt->bind_param("iisii", $user_id, $idLavadoraAsignar, $fecha_actual, $negocio_domiciliario, $id_alquiler);
+            
             
             if ($stmt->execute()) {
                 // Update Lavadora status
@@ -1530,21 +1543,23 @@ function rent_machine($mysqli, $data) {
     global $km, $global_tarifa, $porcentaje;
     $userId = intval($data['user_id'] ?? 0);
     $tiempo = intval($data['tiempo'] ?? 0);
-    $mysqli->set_charset("utf8mb4");
+$mysqli->set_charset("utf8mb4");
 
     if ($userId == 0 || $tiempo == 0) {
         echo json_encode(['status' => 'error', 'message' => 'Datos incompletos']);
         return;
     }
-
-    // Evitar duplicados: Verificar si ya existe una solicitud pendiente creada hace menos de 2 minutos
+    
+    
+    $latitud = floatval($data['latitud'] ?? 0);
+    $longitud = floatval($data['longitud'] ?? 0);
+    
+        // Evitar duplicados: Verificar si ya existe una solicitud pendiente creada hace menos de 2 minutos
     $check_dup = $mysqli->query("SELECT id FROM alquileres WHERE user_id = $userId AND status_servicio = 1 AND fecha_inicio > DATE_SUB(NOW(), INTERVAL 2 MINUTE) LIMIT 1");
     if ($check_dup && $check_dup->num_rows > 0) {
         echo json_encode(['status' => 'error', 'message' => 'Ya tienes una solicitud en proceso.']);
         return;
     }
-    $latitud = floatval($data['latitud'] ?? 0);
-    $longitud = floatval($data['longitud'] ?? 0);
 
 
     // debe existir id_lavadora
@@ -1611,14 +1626,15 @@ function rent_machine($mysqli, $data) {
         $mensaje = "Nuevo servicio disponible: " . $tipo_lavadora_req;
         
         // Insert Alquiler con lavadora_id = NULL y negocio_id = NULL
+        $fecha_inicio = date('Y-m-d H:i:s');
         $query = "INSERT INTO alquileres (user_id, lavadora_id, tipo_lavadora, tiempo_alquiler, status, fecha_inicio, latitud, longitud, valor_servicio, negocio_id, metodo_pago, total, status_servicio, conductor_id,porcentaje )
-                  VALUES ($userId, NULL, '$tipo_lavadora_req', $tiempo, 'activo', NOW(), '$latitud', '$longitud', $tarifa, NULL, '$metodo', $total_amount, 1, 0, $porcentaje )";
+                  VALUES ($userId, NULL, '$tipo_lavadora_req', $tiempo, 'activo', '$fecha_inicio', '$latitud', '$longitud', $tarifa, NULL, '$metodo', $total_amount, 1, 0, $porcentaje )";
 
         if ($mysqli->query($query)) {
             $newRentalId = $mysqli->insert_id;
             
             // Notificar a TODOS los conductores activos (sin filtrar por negocio)
-            $sqlDrivers = "SELECT fcm FROM usuarios WHERE rol_id = 3 AND fcm IS NOT NULL AND fcm != ''";
+            $sqlDrivers = "SELECT fcm FROM usuarios WHERE rol_id = 3 AND fcm IS NOT NULL AND fcm != '' AND activo = 1";
             $resDrivers = $mysqli->query($sqlDrivers);
             while($driver = $resDrivers->fetch_assoc()){
                 if(!empty($driver['fcm'])){
@@ -1720,8 +1736,9 @@ $mysqli->set_charset("utf8mb4");
         }
 
         // Actualizar lavadora y alquiler
+        $fecha_fin = date('Y-m-d H:i:s');
         $mysqli->query("UPDATE lavadoras SET status = 'disponible' WHERE id = $lavadoraId");
-        $mysqli->query("UPDATE alquileres SET status = 'finalizado', status_servicio = 3, fecha_fin = NOW() WHERE id = $rentalId");
+        $mysqli->query("UPDATE alquileres SET status = 'finalizado', status_servicio = 3, fecha_fin = '$fecha_fin' WHERE id = $rentalId");
 
         echo json_encode([
             'status' => 'ok',
@@ -1861,6 +1878,49 @@ $mysqli->set_charset("utf8mb4");
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Error al editar usuario']);
     }
+}
+
+function change_status($mysqli, $data) {
+    $userId = intval($data['user_id'] ?? 0);
+    $activo = isset($data['activo']) ? intval($data['activo']) : -1;
+    $mysqli->set_charset("utf8mb4");
+
+    if ($userId <= 0 || !in_array($activo, [0, 1])) {
+        echo json_encode(['status' => 'error', 'message' => 'Datos inválidos']);
+        return;
+    }
+
+    $stmt = $mysqli->prepare("UPDATE usuarios SET activo = ? WHERE id = ?");
+    $stmt->bind_param("ii", $activo, $userId);
+
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'ok', 'message' => 'Estado actualizado', 'nuevo_estado' => $activo]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Error al actualizar estado']);
+    }
+    $stmt->close();
+}
+
+function get_status_driver($mysqli, $data) {
+    $userId = intval($data['user_id'] ?? 0);
+    $mysqli->set_charset("utf8mb4");
+
+    if ($userId <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
+        return;
+    }
+
+    $stmt = $mysqli->prepare("SELECT activo FROM usuarios WHERE id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($row = $result->fetch_assoc()) {
+        echo json_encode(['status' => 'ok', 'activo' => intval($row['activo'])]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Usuario no encontrado']);
+    }
+    $stmt->close();
 }
 
 
@@ -2067,7 +2127,8 @@ $mysqli->set_charset("utf8mb4");
         return;
     }
     // actualizo el servicio y la fecha de inicio del servicio a la fecha actual
-    $query = "UPDATE alquileres SET start_time = NOW(), conductor_id = $temporalUserDelivery, status_servicio = 2 WHERE user_id = $userId ";
+    $start_time = date('Y-m-d H:i:s');
+    $query = "UPDATE alquileres SET start_time = '$start_time', conductor_id = $temporalUserDelivery, status_servicio = 2 WHERE user_id = $userId ";
 
 
     if ($mysqli->query($query)) {
@@ -2534,4 +2595,40 @@ function log_api($mysqli, $accion, $entrada, $salida) {
 }
 
 
+
+function get_user_strikes($mysqli, $data) {
+    $user_id = intval($data['user_id'] ?? 0);
+    $mysqli->set_charset("utf8mb4");
+    
+    if ($user_id <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
+        return;
+    }
+
+    $stmt = $mysqli->prepare("SELECT cantidad FROM ban_user WHERE id_user = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($row = $result->fetch_assoc()) {
+        $strikes = intval($row['cantidad']);
+    } else {
+        $strikes = 0;
+    }
+    
+    $stmt->close();
+
+    // Obtener configuration general para max_intentos_cancelacion
+    $result_config = $mysqli->query("SELECT max_intentos_cancelacion FROM config_general LIMIT 1");
+    $max_intentos = 0;
+    if ($row_config = $result_config->fetch_assoc()) {
+        $max_intentos = intval($row_config['max_intentos_cancelacion']);
+    }
+
+    echo json_encode([
+        'status' => 'ok',
+        'strikes' => $strikes,
+        'max_intentos' => $max_intentos
+    ]);
+}
 ?>
