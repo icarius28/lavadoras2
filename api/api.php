@@ -167,7 +167,7 @@ switch ($action) {
         get_chat_messages($mysqli, $data);
     break;
     case 'mark_chat_read':
-        get_chat_messages($mysqli, $data);
+        mark_chat_read($mysqli, $data);
     break;
     case 'save_fcm':
         save_fcm($mysqli, $data);
@@ -521,7 +521,7 @@ function send_chat_message($mysqli, $data) {
 
 function get_chat_messages($mysqli, $data) {
     $id_alquiler = intval($data['id_alquiler'] ?? 0);
-$mysqli->set_charset("utf8mb4");
+    $mysqli->set_charset("utf8mb4");
     if (!$id_alquiler) {
         echo json_encode([
             'status' => 'error',
@@ -1367,7 +1367,6 @@ $mysqli->set_charset("utf8mb4");
     $stmt->close();
 }
 function register($mysqli, $data) {
-
     $nombre = $mysqli->real_escape_string($data['nombre'] ?? '');
     $apellido = $mysqli->real_escape_string($data['apellido'] ?? '');
     $telefono = $mysqli->real_escape_string($data['telefono'] ?? '');
@@ -1376,10 +1375,21 @@ function register($mysqli, $data) {
     $usuario = $mysqli->real_escape_string($data['usuario'] ?? '');
     $contrasena = $mysqli->real_escape_string($data['password'] ?? '');
     $google_token = $mysqli->real_escape_string($data['google_token'] ?? '');
-$mysqli->set_charset("utf8mb4");
+
+    $mysqli->set_charset("utf8mb4");
+
     if ($correo == '') {
         header('Content-Type: application/json');
         echo json_encode(['status' => 'error', 'message' => 'Correo requerido']);
+        return;
+    }
+
+    // Verificar si el correo ya existe
+    $check_query = "SELECT id FROM usuarios WHERE correo = '$correo' LIMIT 1";
+    $check_result = $mysqli->query($check_query);
+    if ($check_result && $check_result->num_rows > 0) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'El correo ya está registrado']);
         return;
     }
 
@@ -1395,10 +1405,23 @@ $mysqli->set_charset("utf8mb4");
     $query = "INSERT INTO usuarios (nombre, apellido, telefono, direccion, correo, usuario, contrasena, google_token)
               VALUES ('$nombre', '$apellido', '$telefono', '$direccion', '$correo', '$usuario', '$contrasena', '$google_token')";
 
-    if ($mysqli->query($query)) {
+    try {
+        if ($mysqli->query($query)) {
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'ok', 'user_id' => $mysqli->insert_id]);
+        } else {
+            // Este bloque podría no alcanzarse si mysqli lanza excepciones, pero se mantiene por si acaso/configuración
+            throw new Exception($mysqli->error);
+        }
+    } catch (mysqli_sql_exception $e) {
         header('Content-Type: application/json');
-        echo json_encode(['status' => 'ok', 'user_id' => $mysqli->insert_id]);
-    } else {
+        // Revisar si es error de duplicado (código 1062)
+        if ($e->getCode() == 1062) {
+             echo json_encode(['status' => 'error', 'message' => 'El correo ya está registrado']);
+        } else {
+             echo json_encode(['status' => 'error', 'message' => 'Error al registrar usuario: ' . $e->getMessage()]);
+        }
+    } catch (Exception $e) {
         header('Content-Type: application/json');
         echo json_encode(['status' => 'error', 'message' => 'Error al registrar usuario']);
     }
@@ -1767,7 +1790,7 @@ function get_rental($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
 $mysqli->set_charset("utf8mb4");
 
-    $result = $mysqli->query("SELECT * FROM alquileres WHERE user_id = $userId AND status_servicio in (1,2,3,6) LIMIT 1");
+    $result = $mysqli->query("SELECT * FROM alquileres WHERE user_id = $userId AND status_servicio in (1,2,3,6) ORDER by id DESC limit 1;");
 
     if ($rental = $result->fetch_assoc()) {
         echo json_encode(['status' => 'ok', 'rental' => $rental]);
