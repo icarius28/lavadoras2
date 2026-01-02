@@ -1675,6 +1675,7 @@ $mysqli->set_charset("utf8mb4");
 
         $metodo = $data['payment_method'];
         $total_amount = $data['total_amount'];
+        $tariff_type = $mysqli->real_escape_string($data['tariff_type'] ?? 'normal');
 
         // Obtener tarifa global (sin depender del negocio)
         $tarifa = $global_tarifa;
@@ -1686,8 +1687,8 @@ $mysqli->set_charset("utf8mb4");
         
         // Insert Alquiler con lavadora_id = NULL y negocio_id = NULL
         $fecha_inicio = date('Y-m-d H:i:s');
-        $query = "INSERT INTO alquileres (user_id, lavadora_id, tipo_lavadora, tiempo_alquiler, status, fecha_inicio, latitud, longitud, valor_servicio, negocio_id, metodo_pago, total, status_servicio, conductor_id,porcentaje )
-                  VALUES ($userId, NULL, '$tipo_lavadora_req', $tiempo, 'activo', '$fecha_inicio', '$latitud', '$longitud', $tarifa, NULL, '$metodo', $total_amount, 1, 0, $porcentaje )";
+        $query = "INSERT INTO alquileres (user_id, lavadora_id, tipo_lavadora, tiempo_alquiler, status, fecha_inicio, latitud, longitud, valor_servicio, negocio_id, metodo_pago, total, status_servicio, conductor_id, porcentaje, tariff_type)
+                  VALUES ($userId, NULL, '$tipo_lavadora_req', $tiempo, 'activo', '$fecha_inicio', '$latitud', '$longitud', $tarifa, NULL, '$metodo', $total_amount, 1, 0, $porcentaje, '$tariff_type')";
 
         if ($mysqli->query($query)) {
             $newRentalId = $mysqli->insert_id;
@@ -1759,7 +1760,7 @@ $mysqli->set_charset("utf8mb4");
                     enviarNotificacionFCM(
                         $token, 
                         '⏰ Tiempo Adicional Solicitado', 
-                        $nombreCliente . ' ha solicitado 1 hora adicional de servicio', 
+                        $nombreCliente . ' ha solicitado 1 hora adicional de servicio. Servicio #' . $rentalId, 
                         $rentalId, 
                         'add_time'
                     ); 

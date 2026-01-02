@@ -8,10 +8,10 @@ $offset = ($page - 1) * $limit;
 $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Obtener los usuarios filtrados
-$sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE  tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%' LIMIT $limit OFFSET $offset";
+$sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE  tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%' ORDER BY alquileres.id DESC LIMIT $limit OFFSET $offset";
 if(isset($_SESSION['negocio']) && $_SESSION['negocio']){
     $negocio_id = (int) $_SESSION['negocio'];
-    $sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE negocio_id = '$negocio_id' AND (tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%') LIMIT $limit OFFSET $offset";
+    $sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE negocio_id = '$negocio_id' AND (tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%') ORDER BY alquileres.id DESC LIMIT $limit OFFSET $offset";
 }
 $result = $conn->query($sql);
 
@@ -51,7 +51,10 @@ $total_pages = ceil($total_users / $limit);
                                 <th>Nombre del Cliente</th>
                                 <th>Fecha de Alquiler</th>
                                 <th>Fecha de Devolución</th>
-                                <th>Valor servicio</th>
+                                <th>Tiempo de Servicio (hrs)</th>
+                                <th>Valor de Servicio</th>
+                                <th>Total</th>
+                                <th>Tipo</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
@@ -63,7 +66,10 @@ $total_pages = ceil($total_users / $limit);
                                 <td><?php echo $row['nombre_cliente']; ?></td>
                                 <td><?= $row['start_time']?: 'N/I'; ?></td>
                                 <td><?= $row['fecha_fin'] ?: 'N/I'; ?></td>
-                                <td>$<?= $row['tiempo_alquiler'] * $row['valor_servicio']; ?></td>
+                                <td><?= $row['tiempo_alquiler']; ?></td>
+                                <td>$<?= number_format($row['valor_servicio'], 0, ',', '.'); ?></td>
+                                <td class="fw-bold text-success">$<?= number_format($row['tiempo_alquiler'] * $row['valor_servicio'], 0, ',', '.'); ?></td>
+                                <td><span class="badge bg-info"><?= ucfirst($row['tariff_type'] ?? 'normal'); ?></span></td>
                                 <td>
                                     <?php
                                     // Mostrar el estado con color dependiendo del valor
