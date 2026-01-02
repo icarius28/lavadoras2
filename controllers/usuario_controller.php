@@ -28,6 +28,12 @@ if ($action == 'eliminar_usuario') {
         $correo_actual = $res['correo'];
         $nuevo_correo = $correo_actual . '_deleted_' . time(); // liberar correo
         
+        // Liberar lavadoras asignadas al usuario (volver al negocio)
+        $stmt_lavadoras = $conn->prepare("UPDATE lavadoras SET id_domiciliario = 0 WHERE id_domiciliario = ?");
+        $stmt_lavadoras->bind_param("i", $id);
+        $stmt_lavadoras->execute();
+        
+        // Marcar usuario como eliminado
         $stmt = $conn->prepare("UPDATE usuarios SET status = 99, correo = ? WHERE id = ?");
         $stmt->bind_param("si", $nuevo_correo, $id);
         
@@ -126,6 +132,28 @@ if ($action == 'crear_usuario_app') {
 
     require '../controllers/mailNewUser.php';
     enviarCorreoUsuarioNuevo($correo_usuario, $plainPassword);
+}
+
+if ($action == 'reset_ban_counter') {
+    $id = $_POST['id'];
+    $id = intval($id);
+    
+    // Reiniciar el contador de cancelaciones a 0
+    $stmt = $conn->prepare("UPDATE ban_user SET cantidad = 0 WHERE id_user = ?");
+    $stmt->bind_param("i", $id);
+    
+    if ($stmt->execute()) {
+        // Verificar si se actualizó algún registro
+        if ($stmt->affected_rows > 0) {
+            echo 'ok';
+        } else {
+            // Si no existe registro, también es OK (el usuario no tiene strikes)
+            echo 'ok';
+        }
+    } else {
+        echo 'error';
+    }
+    $stmt->close();
 }
 
 

@@ -90,7 +90,7 @@ $recent_q = "SELECT a.*, u.nombre as usuario, l.codigo as lavadora
              JOIN usuarios u ON a.user_id = u.id
              JOIN lavadoras l ON a.lavadora_id = l.id
              WHERE $where_recent
-             ORDER BY a.fecha_inicio DESC LIMIT $limit_recent";
+             ORDER BY a.id DESC LIMIT $limit_recent";
 $recent_res = $conn->query($recent_q);
 
 ?>

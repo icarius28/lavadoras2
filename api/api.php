@@ -220,9 +220,15 @@ function asignar_lavadora($mysqli, $data) {
     $id_lavadora = intval($data['id_lavadora'] ?? 0);
     $id_domiciliario = intval($data['id_domiciliario'] ?? 0);
     $nuevo_estado_en = $data['en'] ?? ''; // Puede ser 'delivery' o 'bodega'
+    // Si el nuevo estado es bodega, desasignamos (id_domiciliario = 0)
+    if ($nuevo_estado_en === 'bodega') {
+        $id_domiciliario = 0;
+    }
+
     $mysqli->set_charset("utf8mb4");
     // Validaciones básicas
-    if ($id_lavadora <= 0 || $id_domiciliario <= 0 || !in_array($nuevo_estado_en, ['delivery', 'bodega'])) {
+    // Si es para delivery, debe tener domiciliario. Si es bodega, no importa (será 0).
+    if ($id_lavadora <= 0 || ($nuevo_estado_en === 'delivery' && $id_domiciliario <= 0) || !in_array($nuevo_estado_en, ['delivery', 'bodega'])) {
         echo json_encode(['status' => 'error', 'message' => 'Datos inválidos']);
         return;
     }
@@ -496,15 +502,45 @@ function send_chat_message($mysqli, $data) {
     $sql = "INSERT INTO chat_mensajes (id_alquiler, id_usuario, id_domiciliario, remitente, mensaje) 
             VALUES ($id_alquiler, $id_usuario, $id_domiciliario, '$remitente', '$mensaje')";
     
+    // Obtener nombre del remitente y token del destinatario
     if($remitente == "usuario"){
+        // El usuario envió el mensaje, notificar al domiciliario
         $token = getUserFMC($mysqli, $id_domiciliario);
+        
+        // Obtener nombre del usuario
+        $sqlNombre = "SELECT nombre FROM usuarios WHERE id = $id_usuario LIMIT 1";
+        $resultNombre = $mysqli->query($sqlNombre);
+        $nombreRemitente = "Cliente";
+        if($resultNombre && $rowNombre = $resultNombre->fetch_assoc()){
+            $nombreRemitente = $rowNombre['nombre'];
+        }
     }else{
+        // El domiciliario envió el mensaje, notificar al usuario
         $token = getUserFMC($mysqli, $id_usuario);
+        
+        // Obtener nombre del domiciliario
+        $sqlNombre = "SELECT nombre FROM usuarios WHERE id = $id_domiciliario LIMIT 1";
+        $resultNombre = $mysqli->query($sqlNombre);
+        $nombreRemitente = "Domiciliario";
+        if($resultNombre && $rowNombre = $resultNombre->fetch_assoc()){
+            $nombreRemitente = $rowNombre['nombre'];
+        }
     }
     
+    // Enviar notificación con el mensaje real
     if ($token) {
-        enviarNotificacionFCM($token, "Nuevo Mensaje", "Has recibido un nuevo mensaje", "", "mensaje");
+        // Limitar el mensaje a 100 caracteres para la notificación
+        $mensajeCorto = strlen($mensaje) > 100 ? substr($mensaje, 0, 100) . '...' : $mensaje;
+        
+        enviarNotificacionFCM(
+            $token, 
+            "💬 " . $nombreRemitente, 
+            $mensajeCorto, 
+            $id_alquiler, 
+            "mensaje"
+        );
     }
+    
     if ($mysqli->query($sql)) {
         echo json_encode([
             'status' => 'ok',
@@ -1685,16 +1721,19 @@ $mysqli->set_charset("utf8mb4");
     }
 
     // Verificar el tiempo adicional actual
-    $check = $mysqli->query("SELECT adicional_time FROM alquileres WHERE user_id = $userId AND status = 'activo' LIMIT 1");
+    $check = $mysqli->query("SELECT id, conductor_id, adicional_time FROM alquileres WHERE user_id = $userId AND status = 'activo' LIMIT 1");
 
     if ($check && $row = $check->fetch_assoc()) {
         $adicional = intval($row['adicional_time']);
+        $conductor_id = intval($row['conductor_id']);
+        $rentalId = intval($row['id']);
 
         if ($adicional >= 2) {
             echo json_encode( [
                 'status' => 'error',
                 'message' => 'No se puede aumentar más el tiempo adicional (máximo 2)'
             ]);
+            return; // Important to stop execution here
         }
 
         // Si es menor que 2, actualizamos
@@ -1703,6 +1742,30 @@ $mysqli->set_charset("utf8mb4");
                 WHERE user_id = $userId AND status = 'activo' LIMIT 1";
 
         if ($mysqli->query($sql)) {
+            
+            // Enviar notificación al domiciliario con el nombre del cliente
+            if ($conductor_id > 0) {
+                // Obtener nombre del cliente
+                $sqlCliente = "SELECT nombre FROM usuarios WHERE id = $userId LIMIT 1";
+                $resultCliente = $mysqli->query($sqlCliente);
+                $nombreCliente = "El cliente";
+                
+                if ($resultCliente && $rowCliente = $resultCliente->fetch_assoc()) {
+                    $nombreCliente = $rowCliente['nombre'];
+                }
+                
+                $token = getUserFMC($mysqli, $conductor_id); 
+                if ($token) { 
+                    enviarNotificacionFCM(
+                        $token, 
+                        '⏰ Tiempo Adicional Solicitado', 
+                        $nombreCliente . ' ha solicitado 1 hora adicional de servicio', 
+                        $rentalId, 
+                        'add_time'
+                    ); 
+                } 
+            }
+            
             echo json_encode( [
                 'status' => 'ok',
                 'message' => 'Tiempo adicional agregado'
@@ -1982,7 +2045,7 @@ function available_machines($mysqli, $data) {
         $query = "SELECT lavadoras.*, usuarios.latitud, usuarios.longitud, usuarios.monedero 
                   FROM lavadoras
                   JOIN usuarios ON lavadoras.id_domiciliario = usuarios.id
-                  WHERE lavadoras.status = 'disponible' AND lavadoras.type = '$tipo'";
+                  WHERE lavadoras.status = 'disponible' AND lavadoras.type = '$tipo' AND usuarios.activo = 1";
                   
      $mysqli->set_charset("utf8mb4");
 

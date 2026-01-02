@@ -98,11 +98,15 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
                                 <?php else: ?>
                                     <button class="btn btn-success btn-sm" onclick="cambiarStatus(<?php echo $row['id']; ?>, 1)">Activar</button>
                                 <?php endif; ?>
-                                <button class="btn btn-success btn-sm" onclick="$('#modalCrearPago').modal('show'); recargar(<?php echo $row['id']; ?>);">Recargar</button>
+                                <?php if (!isset($_SESSION['negocio'])): ?>
+                                    <button class="btn btn-success btn-sm" onclick="$('#modalCrearPago').modal('show'); recargar(<?php echo $row['id']; ?>);">Recargar</button>
+                                <?php endif; ?>
 
                                 <?php if(isset($_SESSION['negocio']) && $row['monedero'] > 0 && $row['rol_id'] == 3): ?>
                                     <button class="btn btn-success btn-sm" onclick="tomar_recaudo(<?php echo $row['id']; ?>, <?php echo $row['monedero']; ?>, <?php echo isset($usuario_id) ? $usuario_id : 'null'; ?>);">Tomar Recaudo</button>
                                 <?php endif; ?>
+                                    <!-- Botón para reiniciar strikes -->
+                                    <button class="btn btn-info btn-sm" onclick="reiniciarStrikes(<?php echo $row['id']; ?>)">Reiniciar Strikes</button>
                                     <!-- 🔹 Nuevo botón -->
                                  <button class="btn btn-secondary btn-sm" onclick="resetPassword(<?php echo $row['id']; ?>, '<?php echo $row['correo']; ?>')">Resetear Contraseña</button>
                                  <button class="btn btn-danger btn-sm" onclick="eliminarUsuario(<?php echo $row['id']; ?>)">Eliminar</button>
@@ -318,6 +322,43 @@ function tomar_recaudo(id, monedero, negocio) {
     showLoading();
     $.post('../controllers/usuario_controller.php', { action: 'tomar_recaudo', id: id, monedero: monedero, negocio: negocio }, function(response){ window.location.reload(); });
 }
+
+function reiniciarStrikes(id) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "Se reiniciará el contador de cancelaciones de este usuario a 0.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reiniciar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading('Reiniciando strikes...');
+            $.post('../controllers/usuario_controller.php', { action: 'reset_ban_counter', id: id }, function(response) {
+                if (response.trim() === 'ok') {
+                    Swal.fire(
+                        'Reiniciado',
+                        'El contador de strikes ha sido reiniciado a 0.',
+                        'success'
+                    ).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire(
+                        'Error',
+                        'Hubo un problema al reiniciar los strikes.',
+                        'error'
+                    );
+                }
+            }).fail(function() {
+                Swal.fire('Error', 'Error de conexión.', 'error');
+            });
+        }
+    });
+}
+
 
 function editarUsuario(id) {
     showLoading('Cargando usuario...');
