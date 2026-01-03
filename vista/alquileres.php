@@ -75,22 +75,28 @@ $total_pages = ceil($total_users / $limit);
                                     // Mostrar el estado con color dependiendo del valor
                                     switch ($row['status_servicio']) {
                                         case 1:
-                                            echo '<span class="badge bg-success">En proceso de entrega</span>';
+                                            echo '<span class="badge bg-warning text-dark">En espera de aceptación</span>';
+                                            break;
+                                        case 6:
+                                            echo '<span class="badge bg-info">En camino</span>';
                                             break;
                                         case 2:
-                                            echo '<span class="badge bg-warning">Entregado</span>';
+                                            echo '<span class="badge bg-primary">En proceso</span>';
                                             break;
                                         case 3:
-                                            echo '<span class="badge bg-secondary">proceso de devolucion</span>';
+                                            echo '<span class="badge bg-success">Finalizado</span>';
                                             break;
                                         case 4:
-                                                echo '<span class="badge bg-info">Completado</span>';
+                                            echo '<span class="badge bg-secondary">Completado</span>';
                                             break;
                                         case 5:
-                                            echo '<span class="badge bg-info">Cancelado</span>';
-                                        break;
-                                        default:
                                             echo '<span class="badge bg-danger">Cancelado</span>';
+                                            break;
+                                        case 7:
+                                            echo '<span class="badge bg-dark">Cancelado (Sin disponibilidad)</span>';
+                                            break;
+                                        default:
+                                            echo '<span class="badge bg-secondary">Desconocido</span>';
                                             break;
                                     }
                                     ?>

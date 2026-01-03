@@ -253,14 +253,24 @@ $recent_res = $conn->query($recent_q);
                     <tbody>
                         <?php if($recent_res && $recent_res->num_rows > 0): ?>
                             <?php while($row = $recent_res->fetch_assoc()): 
-                                $status_badge = $row['status'] == 'activo' ? 'bg-success' : ($row['status'] == 'finalizado' ? 'bg-secondary' : 'bg-warning');
+                                // Determinar badge según status_servicio
+                                switch($row['status_servicio']) {
+                                    case 1: $status_badge = 'bg-warning text-dark'; $status_text = 'En espera'; break;
+                                    case 6: $status_badge = 'bg-info'; $status_text = 'En camino'; break;
+                                    case 2: $status_badge = 'bg-primary'; $status_text = 'En proceso'; break;
+                                    case 3: $status_badge = 'bg-success'; $status_text = 'Finalizado'; break;
+                                    case 4: $status_badge = 'bg-secondary'; $status_text = 'Completado'; break;
+                                    case 5: $status_badge = 'bg-danger'; $status_text = 'Cancelado'; break;
+                                    case 7: $status_badge = 'bg-dark'; $status_text = 'Cancelado auto'; break;
+                                    default: $status_badge = 'bg-secondary'; $status_text = 'Desconocido'; break;
+                                }
                             ?>
                                 <tr>
                                     <td>
                                         <div class="fw-bold"><?= htmlspecialchars($row['usuario']) ?></div>
                                         <small class="text-muted"><?= date('d M H:i', strtotime($row['fecha_inicio'])) ?></small>
                                     </td>
-                                    <td><span class="badge <?= $status_badge ?> rounded-pill"><?= ucfirst($row['status']) ?></span></td>
+                                    <td><span class="badge <?= $status_badge ?> rounded-pill"><?= $status_text ?></span></td>
                                     <td class="text-end text-success fw-bold">$<?= number_format($row['tiempo_alquiler'] * $row['valor_servicio'],0,',','.') ?></td>
                                 </tr>
                             <?php endwhile; ?>
