@@ -6,7 +6,7 @@
         <a href="home.php?m=up" class="<?= $m == 'up' ? 'active' : '' ?>">Usuarios App</a>
         <a href="home.php?m=a" class="<?= $m == 'a' ? 'active' : '' ?>">Alquileres</a>
         <a href="home.php?m=l" class="<?= $m == 'l' ? 'active' : '' ?>">Lavadoras</a>
-        <a href="home.php?m=pre" class="<?= $m == 'pre' ? 'active' : '' ?>">precios</a>
+        <?php /* <a href="home.php?m=pre" class="<?= $m == 'pre' ? 'active' : '' ?>">precios</a> */ ?>
         <a href="home.php?m=ma" class="<?= $m == 'ma' ? 'active' : '' ?>">Mapa</a>
         <?php /* <a href="home.php?m=c" class="<?= $m == 'c' ? 'active' : '' ?>">Configuración</a> */ ?>
         <a href="home.php?m=s">Salir</a> 

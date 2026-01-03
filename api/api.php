@@ -2070,10 +2070,9 @@ function available_machines($mysqli, $data) {
                 if ($ejemploLavadora === null) {
                     $ejemploLavadora = $lav; 
                     
-                    // Cargar tarifas del negocio de esta lavadora
-                    $id_negocio = $lav['negocio_id'];
+                    // CAMBIO: Cargar tarifas globales (id_negocio = 0) en lugar de por negocio
                     $tarifas_query = "SELECT tipo_servicio, precio FROM precios_lavado 
-                                      WHERE tipo_lavadora = '$tipo' AND id_negocio = $id_negocio";
+                                      WHERE tipo_lavadora = '$tipo' AND id_negocio = 0";
                                       
     
                     $tarifas_result = $mysqli->query($tarifas_query);

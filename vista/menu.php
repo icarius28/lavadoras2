@@ -8,6 +8,7 @@
         <a href="home.php?m=n" class="<?= $m == 'n' ? 'active' : '' ?>">Negocios</a>
         <a href="home.php?m=pr" class="<?= $m == 'pr' ? 'active' : '' ?>">Proveedores</a>
         <a href="home.php?m=l" class="<?= $m == 'l' ? 'active' : '' ?>">Lavadoras</a>
+        <a href="home.php?m=pre" class="<?= $m == 'pre' ? 'active' : '' ?>">Precios Globales</a>
         <a href="home.php?m=pa" class="<?= $m == 'pa' ? 'active' : '' ?>">Pagos</a>
         <a href="home.php?m=pau" class="<?= $m == 'pau' ? 'active' : '' ?>">Pagos Payu</a>
         <a href="home.php?m=mo" class="<?= $m == 'mo' ? 'active' : '' ?>">Motivos</a>

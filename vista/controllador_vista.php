@@ -43,7 +43,12 @@ if(isset($_GET['m'])){
             require_once "proveedor.php";
             break;      
       case 'pre':
-            require_once "precios.php";
+            // CAMBIO: Solo administradores pueden acceder a precios globales
+            if ($_SESSION['user_rol'] != 1) {
+                echo '<div class="alert alert-danger">Acceso denegado. Solo administradores pueden gestionar precios globales.</div>';
+            } else {
+                require_once "precios.php";
+            }
             break;      
        case 'mo':
             require_once "motivos.php";

@@ -1,26 +1,12 @@
 <?php
 
 $lavadoras = [];
-$km = '';
-$telefono = '';
-$id_negocio = $_SESSION['negocio'] ?? null;
 
-
-if ($id_negocio) {
-    // Obtener precios por tipo de lavadora y servicio
-    $sql = "SELECT * FROM precios_lavado WHERE id_negocio = '$id_negocio'";
-    $result = $conn->query($sql);
-    while ($row = $result->fetch_assoc()) {
-        $lavadoras[$row['tipo_lavadora']][$row['tipo_servicio']] = $row['precio'];
-    }
-
-    // Obtener datos adicionales
-    $sql_config = "SELECT * FROM config WHERE id_negocio = '$id_negocio'";
-    $result_config = $conn->query($sql_config);
-    if ($row = $result_config->fetch_assoc()) {
-        $km = $row['km'] ?? '';
-        $telefono = $row['telefono'] ?? '';
-    }
+// CAMBIO: Obtener precios globales (id_negocio = 0) en lugar de precios por negocio
+$sql = "SELECT * FROM precios_lavado WHERE id_negocio = 0";
+$result = $conn->query($sql);
+while ($row = $result->fetch_assoc()) {
+    $lavadoras[$row['tipo_lavadora']][$row['tipo_servicio']] = $row['precio'];
 }
 
 $tipos_lavadora = [
@@ -33,6 +19,10 @@ $tipos_servicio = ['normal', '24horas', 'nocturno'];
 ?>
 
 <!-- Formulario -->
+<div class="alert alert-info mb-3">
+    <i class="fas fa-info-circle"></i> <strong>Precios Globales:</strong> Estos precios se aplicarán a todas las empresas del sistema.
+</div>
+
 <div id="contenedorFormulario" class="mt-4">
   <form id="formPrecioLavadoras">
     <?php foreach ($tipos_lavadora as $lavadora): ?>
@@ -52,7 +42,7 @@ $tipos_servicio = ['normal', '24horas', 'nocturno'];
       </div>
     <?php endforeach; ?>
 
-    <button type="submit" class="btn btn-success">Guardar</button>
+    <button type="submit" class="btn btn-success">Guardar Precios Globales</button>
   </form>
 </div>
 
@@ -60,22 +50,22 @@ $tipos_servicio = ['normal', '24horas', 'nocturno'];
 $('#formPrecioLavadoras').submit(function(e) {
     e.preventDefault();
     showLoading();
-    // Validar campos vacíos o inconsistentes si es necesario (aquí ya tienen 'required' y son numéricos)
     
     $.post('../controllers/precio_controller.php', $(this).serialize() + '&action=guardar_precios_lavadoras', function(response) {
         Swal.fire({
             icon: 'success',
-            title: 'Guardado correctamente',
+            title: 'Precios globales guardados',
+            text: 'Los precios se aplicarán a todas las empresas',
             showConfirmButton: false,
             timer: 1500
         }).then(() => {
             location.reload();
         });
-    }).fail(function() {
+    }).fail(function(xhr) {
         Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'Error al guardar los precios',
+            text: xhr.responseText || 'Error al guardar los precios',
         });
     });
 });

@@ -5,12 +5,16 @@ $conn = conect();
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 if ($action == 'guardar_precios_lavadoras') {
     session_start();
-    $id_negocio = $_SESSION['negocio'] ?? null;
-    if (!$id_negocio) {
-        http_response_code(400);
-        echo "ID de negocio no definido.";
+    
+    // CAMBIO: Solo administradores pueden gestionar precios
+    if (!isset($_SESSION['user_rol']) || $_SESSION['user_rol'] != 1) {
+        http_response_code(403);
+        echo "Acceso denegado. Solo administradores pueden gestionar precios.";
         exit;
     }
+
+    // CAMBIO: Usar id_negocio = 0 para precios globales
+    $id_negocio = 0; // Precios globales
 
     $precios = $_POST['precios'] ?? [];
 
@@ -36,7 +40,7 @@ if ($action == 'guardar_precios_lavadoras') {
         }
     }
 
-    echo "Precios guardados correctamente.";
+    echo "Precios globales guardados correctamente.";
     exit;
 }
 
