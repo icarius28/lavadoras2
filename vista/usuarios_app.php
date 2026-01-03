@@ -105,11 +105,13 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
                                 <?php if(isset($_SESSION['negocio']) && $row['monedero'] > 0 && $row['rol_id'] == 3): ?>
                                     <button class="btn btn-success btn-sm" onclick="tomar_recaudo(<?php echo $row['id']; ?>, <?php echo $row['monedero']; ?>, <?php echo isset($usuario_id) ? $usuario_id : 'null'; ?>);">Tomar Recaudo</button>
                                 <?php endif; ?>
-                                    <!-- Botón para reiniciar strikes -->
+                                <?php if (!isset($_SESSION['negocio'])): ?>
+                                    <!-- Botón para reiniciar strikes (solo admin) -->
                                     <button class="btn btn-info btn-sm" onclick="reiniciarStrikes(<?php echo $row['id']; ?>)">Reiniciar Strikes</button>
-                                    <!-- 🔹 Nuevo botón -->
-                                 <button class="btn btn-secondary btn-sm" onclick="resetPassword(<?php echo $row['id']; ?>, '<?php echo $row['correo']; ?>')">Resetear Contraseña</button>
-                                 <button class="btn btn-danger btn-sm" onclick="eliminarUsuario(<?php echo $row['id']; ?>)">Eliminar</button>
+                                    <!-- Botón resetear contraseña (solo admin) -->
+                                    <button class="btn btn-secondary btn-sm" onclick="resetPassword(<?php echo $row['id']; ?>, '<?php echo $row['correo']; ?>')">Resetear Contraseña</button>
+                                <?php endif; ?>
+                                <button class="btn btn-danger btn-sm" onclick="eliminarUsuario(<?php echo $row['id']; ?>)">Eliminar</button>
                             </td>
                         </tr>
                     <?php endwhile; ?>
