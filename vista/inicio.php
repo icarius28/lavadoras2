@@ -23,10 +23,10 @@ $months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Di
 if ($is_admin) {
     // --- ADMIN QUERY ---
     
-    // KPIs Generales
+    // KPIs Generales - Solo ingresos de servicios completados (status_servicio = 4)
     $kpi1 = $conn->query("SELECT 
         COUNT(*) as total_rentals, 
-        SUM(tiempo_alquiler * valor_servicio) as total_revenue,
+        (SELECT SUM(tiempo_alquiler * valor_servicio) FROM alquileres WHERE status_servicio = 4) as total_revenue,
         (SELECT COUNT(*) FROM alquileres WHERE status = 'activo') as active_rentals
         FROM alquileres");
     if($r = $kpi1->fetch_assoc()){
@@ -42,8 +42,8 @@ if ($is_admin) {
     $negsq = $conn->query("SELECT COUNT(*) as c FROM negocios");
     $negocios_registrados = $negsq->fetch_assoc()['c'];
 
-    // Gráfica de Ingresos Mensuales
-    $revenue_q = $conn->query("SELECT MONTH(fecha_inicio) as mes, SUM(tiempo_alquiler * valor_servicio) as total FROM alquileres GROUP BY mes");
+    // Gráfica de Ingresos Mensuales - Solo servicios completados
+    $revenue_q = $conn->query("SELECT MONTH(fecha_inicio) as mes, SUM(tiempo_alquiler * valor_servicio) as total FROM alquileres WHERE status_servicio = 4 GROUP BY mes");
     while($row = $revenue_q->fetch_assoc()){
         $chart_revenue[(int)$row['mes']] = (float)$row['total'];
     }
@@ -51,10 +51,10 @@ if ($is_admin) {
 } else {
     // --- NEGOCIO QUERY ---
 
-    // KPIs Generales Negocio
+    // KPIs Generales Negocio - Solo ingresos de servicios completados
     $kpi1 = $conn->query("SELECT 
         COUNT(*) as total_rentals, 
-        SUM(tiempo_alquiler * valor_servicio) as total_revenue,
+        (SELECT SUM(tiempo_alquiler * valor_servicio) FROM alquileres WHERE negocio_id = $negocio_id AND status_servicio = 4) as total_revenue,
         (SELECT COUNT(*) FROM alquileres WHERE negocio_id = $negocio_id AND status = 'activo') as active_rentals
         FROM alquileres WHERE negocio_id = $negocio_id");
     
@@ -74,9 +74,9 @@ if ($is_admin) {
         $lavadoras_disponibles = $l['disponibles'];
     }
 
-    // Gráfica de Ingresos Mensuales Negocio
+    // Gráfica de Ingresos Mensuales Negocio - Solo servicios completados
     $revenue_q = $conn->query("SELECT MONTH(fecha_inicio) as mes, SUM(tiempo_alquiler * valor_servicio) as total 
-                               FROM alquileres WHERE negocio_id = $negocio_id GROUP BY mes");
+                               FROM alquileres WHERE negocio_id = $negocio_id AND status_servicio = 4 GROUP BY mes");
     while($row = $revenue_q->fetch_assoc()){
         $chart_revenue[(int)$row['mes']] = (float)$row['total'];
     }
