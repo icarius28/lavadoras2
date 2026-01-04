@@ -2,6 +2,7 @@
 require_once '../modelo/db.php';
 require_once '../modelo/helpers.php';
 require_once '../modelo/notifications.php';
+require_once '../modelo/audit_logger.php'; // Sistema de auditoría
 $conn = conect();
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -9,26 +10,30 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 if ($action == 'cambiar_status') {
     $id = $_POST['id'];
     $status = $_POST['status'];
+    
+    $result = $conn->query("SELECT * FROM usuarios WHERE id = $id");
+    $datos_anteriores = $result->fetch_assoc();
+    
     $stmt = $conn->prepare("UPDATE usuarios SET status = ? WHERE id = ?");
     $stmt->bind_param("ii", $status, $id);
     $stmt->execute();
+    
+    log_actualizar($conn, 'usuarios', $id, $datos_anteriores, ['status' => $status], "Estado de usuario cambiado a: $status");
     echo 'ok';
 }
 
 if ($action == 'eliminar_usuario') {
     $id = $_POST['id'];
     
-    // Obtener correo actual para renombrarlo
-    $stmt_get = $conn->prepare("SELECT correo FROM usuarios WHERE id = ?");
-    $stmt_get->bind_param("i", $id);
-    $stmt_get->execute();
-    $res = $stmt_get->get_result()->fetch_assoc();
+    // Obtener datos completos antes de eliminar
+    $result = $conn->query("SELECT * FROM usuarios WHERE id = $id");
+    $datos_eliminados = $result->fetch_assoc();
     
-    if ($res) {
-        $correo_actual = $res['correo'];
-        $nuevo_correo = $correo_actual . '_deleted_' . time(); // liberar correo
+    if ($datos_eliminados) {
+        $correo_actual = $datos_eliminados['correo'];
+        $nuevo_correo = $correo_actual . '_deleted_' . time();
         
-        // Liberar lavadoras asignadas al usuario (volver al negocio)
+        // Liberar lavadoras asignadas al usuario
         $stmt_lavadoras = $conn->prepare("UPDATE lavadoras SET id_domiciliario = 0 WHERE id_domiciliario = ?");
         $stmt_lavadoras->bind_param("i", $id);
         $stmt_lavadoras->execute();
@@ -38,6 +43,7 @@ if ($action == 'eliminar_usuario') {
         $stmt->bind_param("si", $nuevo_correo, $id);
         
         if ($stmt->execute()) {
+            log_eliminar($conn, 'usuarios', $id, $datos_eliminados, "Usuario eliminado: {$datos_eliminados['nombre']}");
             echo 'ok';
         } else {
             echo 'error';
@@ -90,15 +96,19 @@ if ($action == 'editar_usuario') {
     $nombre = $_POST['nombre'];
     $correo = $_POST['correo'];
     
-    // Validar que el email no exista (excluyendo el usuario actual)
     if (email_exists($conn, $correo, $id)) {
         echo 'error_correo_duplicado';
         exit;
     }
     
+    $result = $conn->query("SELECT * FROM usuarios WHERE id = $id");
+    $datos_anteriores = $result->fetch_assoc();
+    
     $stmt = $conn->prepare("UPDATE usuarios SET nombre = ?, correo = ? WHERE id = ?");
     $stmt->bind_param("ssi", $nombre, $correo, $id);
     $stmt->execute();
+    
+    log_actualizar($conn, 'usuarios', $id, $datos_anteriores, ['nombre' => $nombre, 'correo' => $correo], "Usuario actualizado");
     echo 'ok';
 }
 if ($action == 'crear_usuario_app') {
@@ -109,21 +119,26 @@ if ($action == 'crear_usuario_app') {
     $usuario_usuario = $_POST['usuario_usuario'];
     $negocio = $_POST['id'];
  
-    $plainPassword = generarContrasenaAleatoria(); // genera algo como "A3b8Xz"
+    $plainPassword = generarContrasenaAleatoria();
     $hashedPassword = password_hash($plainPassword, PASSWORD_DEFAULT);
+    $rol_id = 3;
 
-    $rol_id = 3; // rol 3 para conductores
-
-    // Validar que el email no exista
     if (email_exists($conn, $correo_usuario)) {
         echo 'error_correo_duplicado';
         exit;
     }
 
-    // Insertar usuario - CORREGIDO: usar $hashedPassword no $contrasena
     $stmt_user = $conn->prepare("INSERT INTO usuarios (nombre, apellido, telefono,  correo, usuario, contrasena, rol_id,conductor_negocio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt_user->bind_param("ssssssii", $nombre_usuario, $apellido_usuario, $telefono_usuario,  $correo_usuario, $usuario_usuario, $hashedPassword, $rol_id, $negocio);
     if ($stmt_user->execute()) {
+        $nuevo_id = $conn->insert_id;
+        log_crear($conn, 'usuarios', $nuevo_id, [
+            'nombre' => $nombre_usuario,
+            'apellido' => $apellido_usuario,
+            'correo' => $correo_usuario,
+            'rol_id' => $rol_id,
+            'conductor_negocio' => $negocio
+        ], "Nuevo usuario conductor creado: $nombre_usuario");
         echo 'ok';
     } else {
         echo 'error_crear_usuario';
@@ -138,16 +153,14 @@ if ($action == 'reset_ban_counter') {
     $id = $_POST['id'];
     $id = intval($id);
     
-    // Reiniciar el contador de cancelaciones a 0
     $stmt = $conn->prepare("UPDATE ban_user SET cantidad = 0 WHERE id_user = ?");
     $stmt->bind_param("i", $id);
     
     if ($stmt->execute()) {
-        // Verificar si se actualizó algún registro
+        log_accion($conn, 'RESET_STRIKES', "Strikes de usuario reiniciados", 'ban_user', $id);
         if ($stmt->affected_rows > 0) {
             echo 'ok';
         } else {
-            // Si no existe registro, también es OK (el usuario no tiene strikes)
             echo 'ok';
         }
     } else {
