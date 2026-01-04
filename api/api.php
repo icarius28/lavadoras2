@@ -208,6 +208,9 @@ switch ($action) {
     case 'confirmar_entrega_lavadora':
         confirmar_entrega_lavadora($mysqli, $data);
     break;
+    case 'get_valor_minimo':
+        get_valor_minimo($mysqli, $data);
+    break;
     case 'get_user_strikes':
         get_user_strikes($mysqli, $data);
     break;
@@ -1889,9 +1892,9 @@ function lavadoras_asignadas($mysqli, $data) {
         echo json_encode(['status' => 'error', 'message' => 'ID de usuario requerido']);
         return;
     }
-$mysqli->set_charset("utf8mb4");
-    // Obtener TODAS las lavadoras asignadas al domiciliario (disponibles y alquiladas)
-    // Usar prepared statement para evitar SQL injection
+    $mysqli->set_charset("utf8mb4");
+    
+    // Obtener TODAS las lavadoras asignadas al domiciliario
     $stmt = $mysqli->prepare("
         SELECT 
             lavadoras.id,
@@ -1902,22 +1905,18 @@ $mysqli->set_charset("utf8mb4");
             lavadoras.type,
             lavadoras.en,
             lavadoras.id_domiciliario,
-            precios_lavado.precio,
             CASE 
                 WHEN lavadoras.status = 'alquilada' THEN 
                     (SELECT CONCAT(u.nombre, ' ', u.apellido) 
                      FROM alquileres a 
                      JOIN usuarios u ON a.user_id = u.id 
                      WHERE a.lavadora_id = lavadoras.id 
-                     AND a.status_servicio IN (1,2,3) 
+                     AND a.status_servicio IN (1,2,3,6) 
                      LIMIT 1)
                 ELSE NULL
             END as cliente_actual
         FROM lavadoras 
-        INNER JOIN precios_lavado ON lavadoras.negocio_id = precios_lavado.id_negocio 
-            AND lavadoras.type = precios_lavado.tipo_lavadora 
-        WHERE precios_lavado.tipo_servicio = 'normal' 
-            AND lavadoras.id_domiciliario = ?
+        WHERE lavadoras.id_domiciliario = ?
         ORDER BY lavadoras.status ASC, lavadoras.id ASC
     ");
     
@@ -1931,13 +1930,41 @@ $mysqli->set_charset("utf8mb4");
     $result = $stmt->get_result();
 
     $asings = [];
-    while ($asing = $result->fetch_assoc()) {
-        $asings[] = $asing;
+    while ($lavadora = $result->fetch_assoc()) {
+        // Obtener precios globales para este tipo de lavadora
+        $tipo_lavadora = $mysqli->real_escape_string($lavadora['type']);
+        
+        // CAMBIO: Usar precios globales (id_negocio = 0)
+        $precios_query = $mysqli->query("
+            SELECT tipo_servicio, precio 
+            FROM precios_lavado 
+            WHERE tipo_lavadora = '$tipo_lavadora' 
+            AND id_negocio = 0
+        ");
+        
+        $precios = [
+            'normal' => 0,
+            '24horas' => 0,
+            'nocturno' => 0
+        ];
+        
+        if ($precios_query) {
+            while ($precio_row = $precios_query->fetch_assoc()) {
+                $precios[$precio_row['tipo_servicio']] = (float)$precio_row['precio'];
+            }
+        }
+        
+        // Agregar precios al objeto lavadora
+        $lavadora['precios'] = $precios;
+        $lavadora['precio_normal'] = $precios['normal'];
+        $lavadora['precio_24horas'] = $precios['24horas'];
+        $lavadora['precio_nocturno'] = $precios['nocturno'];
+        
+        $asings[] = $lavadora;
     }
 
     if (count($asings) > 0) {
-
-        echo json_encode(['status' => 'ok', 'asignadas' => $asings],JSON_INVALID_UTF8_SUBSTITUTE);
+        echo json_encode(['status' => 'ok', 'asignadas' => $asings], JSON_INVALID_UTF8_SUBSTITUTE);
     } else {
         echo json_encode(['status' => 'ok', 'asignadas' => []]);
     }
@@ -2717,4 +2744,26 @@ function get_user_strikes($mysqli, $data) {
         'max_intentos' => $max_intentos
     ]);
 }
+
+function get_valor_minimo($mysqli, $data) {
+    $mysqli->set_charset("utf8mb4");
+    
+    // Obtener valor_minimo de config_general
+    $result = $mysqli->query("SELECT valor_minimo FROM config_general LIMIT 1");
+    
+    if ($row = $result->fetch_assoc()) {
+        $valor_minimo = floatval($row['valor_minimo']);
+        
+        echo json_encode([
+            'status' => 'ok',
+            'valor_minimo' => $valor_minimo
+        ]);
+    } else {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'No se pudo obtener la configuración'
+        ]);
+    }
+}
+
 ?>
