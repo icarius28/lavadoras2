@@ -35,8 +35,9 @@ $total_pages = ceil($total_users / $limit);
 
             <!-- Tabla de usuarios -->
             <div class="card shadow mb-4">
-                <div class="card-header">
-                    <h5>Lista de Usuarios</h5>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Lista de Usuarios</h5>
+                    <button class="btn btn-success" onclick="abrirModalCrear()"><i class="fas fa-plus"></i> Crear Usuario</button>
                 </div>
                 <div class="card-body">
                     <table class="table table-bordered table-striped">
@@ -59,8 +60,9 @@ $total_pages = ceil($total_users / $limit);
                                     <?php echo $row['status'] == 1 ? 'Activo' : 'Inactivo'; ?>
                                 </td>
                                 <td>
-                                    <!-- Botones para Editar y Bloquear -->
+                                    <!-- Botones para Editar, Cambiar Contraseña y Bloquear -->
                                     <button class="btn btn-warning btn-sm" onclick="editarUsuario(<?php echo $row['id']; ?>)">Editar</button>
+                                    <button class="btn btn-info btn-sm" onclick="cambiarContrasena(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['nombre']); ?>')"><i class="fas fa-key"></i></button>
                                     <?php if ($row['status'] == 1) { ?>
                                         <button class="btn btn-danger btn-sm" onclick="cambiarStatus(<?php echo $row['id']; ?>, 0)">Bloquear</button>
                                     <?php } else { ?>
@@ -119,6 +121,82 @@ $total_pages = ceil($total_users / $limit);
     </form>
   </div>
 </div>
+
+<!-- Modal de creación de usuario -->
+<div class="modal fade" id="modalCrear" tabindex="-1" role="dialog" aria-labelledby="modalCrearLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form id="formCrearUsuario">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Crear Usuario del Sistema</h5>
+                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <input type="text" name="nombre" id="crear_nombre" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico *</label>
+                    <input type="email" name="correo" id="crear_correo" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña *</label>
+                    <input type="password" name="contrasena" id="crear_contrasena" class="form-control" required minlength="6">
+                    <small class="form-text text-muted">Mínimo 6 caracteres</small>
+                </div>
+                <div class="form-group">
+                    <label>Confirmar Contraseña *</label>
+                    <input type="password" name="confirmar_contrasena" id="crear_confirmar" class="form-control" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Rol *</label>
+                    <select name="rol_id" id="crear_rol" class="form-control" required>
+                        <option value="">Seleccione un rol</option>
+                        <option value="1">Administrador</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success">Crear Usuario</button>
+            </div>
+        </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal de cambio de contraseña -->
+<div class="modal fade" id="modalContrasena" tabindex="-1" role="dialog" aria-labelledby="modalContrasenaLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form id="formCambiarContrasena">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cambiar Contraseña</h5>
+                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="id" id="contrasena_id">
+                <p>Usuario: <strong id="contrasena_nombre"></strong></p>
+                <div class="form-group">
+                    <label>Nueva Contraseña *</label>
+                    <input type="password" name="nueva_contrasena" id="nueva_contrasena" class="form-control" required minlength="6">
+                    <small class="form-text text-muted">Mínimo 6 caracteres</small>
+                </div>
+                <div class="form-group">
+                    <label>Confirmar Nueva Contraseña *</label>
+                    <input type="password" name="confirmar_nueva" id="confirmar_nueva" class="form-control" required minlength="6">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Cambiar Contraseña</button>
+            </div>
+        </div>
+    </form>
+  </div>
+</div>
+
 <script>
 
 function cambiarStatus(id, nuevoStatus) {
@@ -172,6 +250,88 @@ $('#formEditarUsuario').submit(function(e) {
             $('#modalEditar').modal('hide');
             location.reload();
         });
+    });
+});
+
+function abrirModalCrear() {
+    $('#formCrearUsuario')[0].reset();
+    $('#modalCrear').modal('show');
+}
+
+$('#formCrearUsuario').submit(function(e) {
+    e.preventDefault();
+    const nombre = $('#crear_nombre').val();
+    const correo = $('#crear_correo').val();
+    const contrasena = $('#crear_contrasena').val();
+    const confirmar = $('#crear_confirmar').val();
+    const rol_id = $('#crear_rol').val();
+
+    if (!validateNotEmpty(nombre)) { showErrorAlert('El nombre es obligatorio'); return; }
+    if (!validateNotEmpty(correo)) { showErrorAlert('El correo es obligatorio'); return; }
+    if (!validateEmail(correo)) { showErrorAlert('Correo inválido'); return; }
+    if (!validateNotEmpty(contrasena)) { showErrorAlert('La contraseña es obligatoria'); return; }
+    if (contrasena.length < 6) { showErrorAlert('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (contrasena !== confirmar) { showErrorAlert('Las contraseñas no coinciden'); return; }
+    if (!validateNotEmpty(rol_id)) { showErrorAlert('Debe seleccionar un rol'); return; }
+
+    showLoading();
+    $.post('../controllers/usuario_controller.php', $(this).serialize() + '&action=crear_usuario_sistema', function(response) {
+        if (response.trim() === 'error_correo_duplicado') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Correo ya registrado',
+                text: 'El correo electrónico ya está registrado en el sistema. Por favor, utiliza otro correo.',
+            });
+            return;
+        }
+        if (response.trim() === 'ok') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Usuario creado exitosamente',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                $('#modalCrear').modal('hide');
+                location.reload();
+            });
+        } else {
+            showErrorAlert('Error al crear usuario');
+        }
+    });
+});
+
+function cambiarContrasena(id, nombre) {
+    $('#contrasena_id').val(id);
+    $('#contrasena_nombre').text(nombre);
+    $('#formCambiarContrasena')[0].reset();
+    $('#contrasena_id').val(id); // Restaurar después del reset
+    $('#modalContrasena').modal('show');
+}
+
+$('#formCambiarContrasena').submit(function(e) {
+    e.preventDefault();
+    const nueva = $('#nueva_contrasena').val();
+    const confirmar = $('#confirmar_nueva').val();
+
+    if (!validateNotEmpty(nueva)) { showErrorAlert('La nueva contraseña es obligatoria'); return; }
+    if (nueva.length < 6) { showErrorAlert('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (nueva !== confirmar) { showErrorAlert('Las contraseñas no coinciden'); return; }
+
+    showLoading();
+    $.post('../controllers/usuario_controller.php', $(this).serialize() + '&action=cambiar_contrasena', function(response) {
+        if (response.trim() === 'ok') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Contraseña actualizada',
+                text: 'La contraseña ha sido cambiada exitosamente',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                $('#modalContrasena').modal('hide');
+            });
+        } else {
+            showErrorAlert('Error al cambiar la contraseña');
+        }
     });
 });
 

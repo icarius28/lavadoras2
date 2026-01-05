@@ -183,6 +183,61 @@ if ($action == 'reset_all_strikes') {
 }
 
 
+if ($action == 'crear_usuario_sistema') {
+    $nombre = $_POST['nombre'];
+    $correo = $_POST['correo'];
+    $contrasena = $_POST['contrasena'];
+    $rol_id = $_POST['rol_id'];
+    
+    // Validar que el correo no exista
+    if (email_exists($conn, $correo)) {
+        echo 'error_correo_duplicado';
+        exit;
+    }
+    
+    // Hashear la contraseña
+    $hashedPassword = password_hash($contrasena, PASSWORD_DEFAULT);
+    
+    // Insertar nuevo usuario
+    $stmt = $conn->prepare("INSERT INTO usuarios (nombre, correo, contrasena, rol_id, status) VALUES (?, ?, ?, ?, 1)");
+    $stmt->bind_param("sssi", $nombre, $correo, $hashedPassword, $rol_id);
+    
+    if ($stmt->execute()) {
+        $nuevo_id = $conn->insert_id;
+        log_crear($conn, 'usuarios', $nuevo_id, [
+            'nombre' => $nombre,
+            'correo' => $correo,
+            'rol_id' => $rol_id
+        ], "Nuevo usuario del sistema creado: $nombre");
+        echo 'ok';
+    } else {
+        echo 'error';
+    }
+}
+
+if ($action == 'cambiar_contrasena') {
+    $id = $_POST['id'];
+    $nueva_contrasena = $_POST['nueva_contrasena'];
+    
+    // Obtener datos anteriores
+    $result = $conn->query("SELECT * FROM usuarios WHERE id = $id");
+    $datos_anteriores = $result->fetch_assoc();
+    
+    // Hashear la nueva contraseña
+    $hashedPassword = password_hash($nueva_contrasena, PASSWORD_DEFAULT);
+    
+    // Actualizar contraseña
+    $stmt = $conn->prepare("UPDATE usuarios SET contrasena = ? WHERE id = ?");
+    $stmt->bind_param("si", $hashedPassword, $id);
+    
+    if ($stmt->execute()) {
+        log_actualizar($conn, 'usuarios', $id, $datos_anteriores, ['contrasena' => '[CONTRASEÑA ACTUALIZADA]'], "Contraseña actualizada para usuario: {$datos_anteriores['nombre']}");
+        echo 'ok';
+    } else {
+        echo 'error';
+    }
+}
+
 function generarContrasenaAleatoria($longitud = 6) {
     $caracteres = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     $contrasena = '';
