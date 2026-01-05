@@ -169,6 +169,19 @@ if ($action == 'reset_ban_counter') {
     $stmt->close();
 }
 
+if ($action == 'reset_all_strikes') {
+    // Resetear strikes de TODOS los usuarios
+    $query = "UPDATE ban_user SET cantidad = 0";
+    
+    if ($conn->query($query)) {
+        $affected = $conn->affected_rows;
+        log_accion($conn, 'RESET_ALL_STRIKES', "Strikes de todos los usuarios reiniciados (Total: $affected)", 'ban_user', 0);
+        echo json_encode(['status' => 'ok', 'affected' => $affected]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Error al resetear strikes']);
+    }
+}
+
 
 function generarContrasenaAleatoria($longitud = 6) {
     $caracteres = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

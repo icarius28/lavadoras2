@@ -1,6 +1,7 @@
 <?php
 $limit = 10;
-$page = isset($_GET['page']) ? $_GET['page'] : 1;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, $page); // Asegurar que la página sea al menos 1
 $offset = ($page - 1) * $limit;
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 
@@ -15,7 +16,7 @@ $result = $conn->query($sql);
 $sql_count = "SELECT COUNT(*) as total FROM pagos WHERE $where AND referencia LIKE '%$search%'";
 $total_result = $conn->query($sql_count);
 $total = $total_result->fetch_assoc()['total'];
-$total_pages = ceil($total / $limit);
+$total_pages = max(1, ceil($total / $limit)); // Asegurar que haya al menos 1 página
 
 // listado de usuarios tipo cliente
 $usuarios  = "SELECT * FROM usuarios where rol_id = 4";
@@ -24,8 +25,8 @@ $list_usuarios = $conn->query($usuarios);
 
 ?>
 <h1>Listado de Pagos</h1>
-<form action="home.php?m=pagos" method="GET" class="mb-3">
-    <input type="hidden" name="m" value="pagos">
+<form action="home.php?m=pa" method="GET" class="mb-3">
+    <input type="hidden" name="m" value="pa">
     <div class="input-group">
         <input type="text" name="search" class="form-control" placeholder="Buscar por referencia" value="<?= htmlspecialchars($search); ?>">
         <button type="submit" class="btn btn-primary">Buscar</button>
@@ -66,16 +67,48 @@ $list_usuarios = $conn->query($usuarios);
 
         <nav>
             <ul class="pagination">
+                <?php
+                // Calcular el rango de páginas a mostrar
+                $range = 2; // Número de páginas a mostrar a cada lado de la página actual
+                $start_page = max(1, $page - $range);
+                $end_page = min($total_pages, $page + $range);
+                ?>
+                
+                <!-- Botón Anterior -->
                 <li class="page-item <?= $page <= 1 ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?m=pagos&page=<?= $page - 1; ?>&search=<?= htmlspecialchars($search); ?>">Anterior</a>
+                    <a class="page-link" href="?m=pa&page=<?= max(1, $page - 1); ?>&search=<?= urlencode($search); ?>">Anterior</a>
                 </li>
-                <?php for ($i = 1; $i <= $total_pages; $i++) { ?>
-                <li class="page-item <?= $i == $page ? 'active' : ''; ?>">
-                    <a class="page-link" href="?m=pagos&page=<?= $i; ?>&search=<?= htmlspecialchars($search); ?>"><?= $i; ?></a>
-                </li>
+                
+                <!-- Primera página -->
+                <?php if ($start_page > 1) { ?>
+                    <li class="page-item">
+                        <a class="page-link" href="?m=pa&page=1&search=<?= urlencode($search); ?>">1</a>
+                    </li>
+                    <?php if ($start_page > 2) { ?>
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    <?php } ?>
                 <?php } ?>
+                
+                <!-- Páginas en el rango -->
+                <?php for ($i = $start_page; $i <= $end_page; $i++) { ?>
+                    <li class="page-item <?= $i == $page ? 'active' : ''; ?>">
+                        <a class="page-link" href="?m=pa&page=<?= $i; ?>&search=<?= urlencode($search); ?>"><?= $i; ?></a>
+                    </li>
+                <?php } ?>
+                
+                <!-- Última página -->
+                <?php if ($end_page < $total_pages) { ?>
+                    <?php if ($end_page < $total_pages - 1) { ?>
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    <?php } ?>
+                    <li class="page-item">
+                        <a class="page-link" href="?m=pa&page=<?= $total_pages; ?>&search=<?= urlencode($search); ?>"><?= $total_pages; ?></a>
+                    </li>
+                <?php } ?>
+                
+                <!-- Botón Siguiente -->
                 <li class="page-item <?= $page >= $total_pages ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?m=pagos&page=<?= $page + 1; ?>&search=<?= htmlspecialchars($search); ?>">Siguiente</a>
+                    <a class="page-link" href="?m=pa&page=<?= min($total_pages, $page + 1); ?>&search=<?= urlencode($search); ?>">Siguiente</a>
                 </li>
             </ul>
         </nav>

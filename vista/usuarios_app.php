@@ -74,6 +74,13 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
 <!-- Botón Crear Usuario (visible para admin y negocio) -->
 <a href="crear_usuario.php" class="btn btn-primary mb-3">Crear Nuevo usuario</a>
 
+<!-- Botón Resetear Strikes de Todos (solo admin) -->
+<?php if (!isset($_SESSION['negocio'])): ?>
+    <button class="btn btn-warning mb-3 ms-2" onclick="resetearTodosStrikes()">
+        <i class="fas fa-undo"></i> Resetear Strikes de Todos
+    </button>
+<?php endif; ?>
+
 <!-- Tabla -->
 <div class="card shadow mb-4">
     <div class="card-header"><h5>Lista de Usuarios</h5></div>
@@ -103,9 +110,10 @@ if (isset($_SESSION['negocio']) && $_SESSION['negocio']) {
                                 <?php endif; ?>
 
                                 <?php if(isset($_SESSION['negocio']) && $row['monedero'] > 0 && $row['rol_id'] == 3): ?>
-                                    <button class="btn btn-success btn-sm" onclick="tomar_recaudo(<?php echo $row['id']; ?>, <?php echo $row['monedero']; ?>, <?php echo isset($usuario_id) ? $usuario_id : 'null'; ?>);">Tomar Recaudo</button>
+                                  
                                 <?php endif; ?>
                                 <?php if (!isset($_SESSION['negocio'])): ?>
+                                      <button class="btn btn-success btn-sm" onclick="tomar_recaudo(<?php echo $row['id']; ?>, <?php echo $row['monedero']; ?>, <?php echo isset($usuario_id) ? $usuario_id : 'null'; ?>);">Tomar Recaudo</button>
                                     <!-- Botón para reiniciar strikes (solo admin) -->
                                     <button class="btn btn-info btn-sm" onclick="reiniciarStrikes(<?php echo $row['id']; ?>)">Reiniciar Strikes</button>
                                     <!-- Botón resetear contraseña (solo admin) -->
@@ -353,6 +361,47 @@ function reiniciarStrikes(id) {
                         'Hubo un problema al reiniciar los strikes.',
                         'error'
                     );
+                }
+            }).fail(function() {
+                Swal.fire('Error', 'Error de conexión.', 'error');
+            });
+        }
+    });
+}
+
+function resetearTodosStrikes() {
+    Swal.fire({
+        title: '⚠️ ¿Estás completamente seguro?',
+        html: "Se reiniciará el contador de cancelaciones de <strong>TODOS los usuarios</strong> a 0.<br><br>Esta acción afectará a todos los usuarios del sistema.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, resetear todos',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading('Reseteando strikes de todos los usuarios...');
+            $.post('../controllers/usuario_controller.php', { action: 'reset_all_strikes' }, function(response) {
+                try {
+                    const data = JSON.parse(response);
+                    if (data.status === 'ok') {
+                        Swal.fire(
+                            'Completado',
+                            `Se han reseteado los strikes de ${data.affected} usuario(s).`,
+                            'success'
+                        ).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire(
+                            'Error',
+                            data.message || 'Hubo un problema al resetear los strikes.',
+                            'error'
+                        );
+                    }
+                } catch(e) {
+                    Swal.fire('Error', 'Error al procesar la respuesta.', 'error');
                 }
             }).fail(function() {
                 Swal.fire('Error', 'Error de conexión.', 'error');

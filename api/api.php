@@ -1680,8 +1680,8 @@ $mysqli->set_charset("utf8mb4");
         $total_amount = $data['total_amount'];
         $tariff_type = $mysqli->real_escape_string($data['tariff_type'] ?? 'normal');
 
-        // Obtener tarifa global (sin depender del negocio)
-        $tarifa = $global_tarifa;
+        // Obtener tarifa desde el cliente (service_value reemplaza global_tarifa)
+        $tarifa = floatval($data['service_value'] ?? $global_tarifa);
 
         // NO asignamos lavadora_id aun (NULL). NO asignamos conductor (0).
         // NO asignamos negocio (NULL) - el negocio no es relevante para el marketplace
