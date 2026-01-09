@@ -42,7 +42,17 @@ if ($action == 'guardar_config') {
         $multa_domiciliario = $_POST['multa_domiciliario'];
 
         $payu_habilitado = isset($_POST['payu_habilitado']) ? 1 : 0;
-        $payu_cuenta = $_POST['payu_cuenta'];
+        $payu_cuenta = $_POST['payu_cuenta'] ?? '';
+        $payu_checkout_url = $_POST['payu_checkout_url'] ?? '';
+        $payu_merchant_id = $_POST['payu_merchant_id'] ?? '';
+        $payu_account_id = $_POST['payu_account_id'] ?? '';
+        $payu_response_url = $_POST['payu_response_url'] ?? '';
+        $payu_confirmation_url = $_POST['payu_confirmation_url'] ?? '';
+        $email_pay = $_POST['email_pay'] ?? '';
+        
+        // DEBUG: Log para verificar qué se está recibiendo
+        error_log("DEBUG CONFIG - email_pay recibido: '" . $email_pay . "'");
+        error_log("DEBUG CONFIG - payu_habilitado: " . $payu_habilitado);
 
         $bancolombia_habilitado = isset($_POST['bancolombia_habilitado']) ? 1 : 0;
         $bancolombia_cuenta = $_POST['bancolombia_cuenta'];
@@ -57,12 +67,14 @@ if ($action == 'guardar_config') {
         $correo_contacto = $_POST['correo_contacto'];
 
         // Verificar si ya existe una configuraci車n
-        $stmt_check = $conn->prepare("SELECT id FROM config_general WHERE id = ?");
+        $stmt_check = $conn->prepare("SELECT id, banner FROM config_general WHERE id = ?");
         $stmt_check->bind_param("i", $id);
         $stmt_check->execute();
-        $stmt_check->store_result();
+        $result_check = $stmt_check->get_result();
+        $existing_config = $result_check->fetch_assoc();
         
-        
+        // Inicializar $newName con el banner existente o null
+        $newName = $existing_config['banner'] ?? null;
         
         if (isset($_FILES['logo_negocio']) && $_FILES['logo_negocio']['error'] === UPLOAD_ERR_OK) {
         $fileTmp = $_FILES['logo_negocio']['tmp_name'];
@@ -94,49 +106,86 @@ if ($action == 'guardar_config') {
             echo "No se subió ninguna imagen.";
         }
 
-        if ($stmt_check->num_rows > 0) {
-            // Actualizar
-            $stmt_update = $conn->prepare("UPDATE config_general SET km = ?, global_tarifa = ?, porcentaje = ?, valor_minimo = ?, 
-                max_intentos_cancelacion = ?, multa_cliente = ?, multa_domiciliario = ?, 
-                payu_habilitado = ?, payu_cuenta = ?, 
-                bancolombia_habilitado = ?, bancolombia_cuenta = ?, 
-                nequi_habilitado = ?, nequi_cuenta = ?, 
-                daviplata_habilitado = ?, daviplata_cuenta = ?, 
-                whatsapp_contacto = ?, correo_contacto = ?, banner = ? 
-                WHERE id = ?");
-                
-            $stmt_update->bind_param("ddddddissississsssi", 
-                $km, $precio, $porcentaje, $min_servicio, 
-                $max_intentos_cancelacion, $multa_cliente, $multa_domiciliario, 
-                $payu_habilitado, $payu_cuenta, 
-                $bancolombia_habilitado, $bancolombia_cuenta, 
-                $nequi_habilitado, $nequi_cuenta, 
-                $daviplata_habilitado, $daviplata_cuenta, 
-                $whatsapp_contacto, $correo_contacto,$newName,  $id
-            );
-
-            $stmt_update->execute();
-            echo 'actualizado';
+        if ($existing_config) {
+            // Actualizar - Usando query directa para debug
+            
+            // Escapar todos los valores string
+            $payu_cuenta_esc = $conn->real_escape_string($payu_cuenta);
+            $payu_checkout_url_esc = $conn->real_escape_string($payu_checkout_url);
+            $payu_merchant_id_esc = $conn->real_escape_string($payu_merchant_id);
+            $payu_account_id_esc = $conn->real_escape_string($payu_account_id);
+            $payu_response_url_esc = $conn->real_escape_string($payu_response_url);
+            $payu_confirmation_url_esc = $conn->real_escape_string($payu_confirmation_url);
+            $email_pay_esc = $conn->real_escape_string($email_pay);
+            $bancolombia_cuenta_esc = $conn->real_escape_string($bancolombia_cuenta);
+            $nequi_cuenta_esc = $conn->real_escape_string($nequi_cuenta);
+            $daviplata_cuenta_esc = $conn->real_escape_string($daviplata_cuenta);
+            $whatsapp_contacto_esc = $conn->real_escape_string($whatsapp_contacto);
+            $correo_contacto_esc = $conn->real_escape_string($correo_contacto);
+            $newName_esc = $conn->real_escape_string($newName ?? '');
+            
+            // DEBUG: Log del valor escapado
+            error_log("DEBUG CONFIG - email_pay escapado: '" . $email_pay_esc . "'");
+            
+            $sql = "UPDATE config_general SET 
+                km = $km, 
+                global_tarifa = $precio, 
+                porcentaje = $porcentaje, 
+                valor_minimo = $min_servicio, 
+                max_intentos_cancelacion = $max_intentos_cancelacion, 
+                multa_cliente = $multa_cliente, 
+                multa_domiciliario = $multa_domiciliario, 
+                payu_habilitado = $payu_habilitado, 
+                payu_cuenta = '$payu_cuenta_esc', 
+                payu_checkout_url = '$payu_checkout_url_esc', 
+                payu_merchant_id = '$payu_merchant_id_esc', 
+                payu_account_id = '$payu_account_id_esc', 
+                payu_response_url = '$payu_response_url_esc', 
+                payu_confirmation_url = '$payu_confirmation_url_esc', 
+                email_pay = '$email_pay_esc', 
+                bancolombia_habilitado = $bancolombia_habilitado, 
+                bancolombia_cuenta = '$bancolombia_cuenta_esc', 
+                nequi_habilitado = $nequi_habilitado, 
+                nequi_cuenta = '$nequi_cuenta_esc', 
+                daviplata_habilitado = $daviplata_habilitado, 
+                daviplata_cuenta = '$daviplata_cuenta_esc', 
+                whatsapp_contacto = '$whatsapp_contacto_esc', 
+                correo_contacto = '$correo_contacto_esc', 
+                banner = '$newName_esc' 
+                WHERE id = $id";
+            
+            // DEBUG: Log de la query completa
+            error_log("DEBUG CONFIG - SQL Query: " . $sql);
+            
+            if ($conn->query($sql)) {
+                error_log("DEBUG CONFIG - UPDATE exitoso. Filas afectadas: " . $conn->affected_rows);
+                echo 'actualizado';
+            } else {
+                error_log("DEBUG CONFIG - ERROR en UPDATE: " . $conn->error);
+                echo 'error: ' . $conn->error;
+            }
         } else {
             // Insertar nuevo
             $stmt_insert = $conn->prepare("INSERT INTO config_general (
                 id, km, global_tarifa, porcentaje, valor_minimo, 
                 max_intentos_cancelacion, multa_cliente, multa_domiciliario, 
-                payu_habilitado, payu_cuenta, 
+                payu_habilitado, payu_cuenta, payu_checkout_url, payu_merchant_id, payu_account_id, 
+                payu_response_url, payu_confirmation_url, email_pay, 
                 bancolombia_habilitado, bancolombia_cuenta, 
                 nequi_habilitado, nequi_cuenta, 
                 daviplata_habilitado, daviplata_cuenta, 
-                whatsapp_contacto, correo_contacto) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                whatsapp_contacto, correo_contacto, banner) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-            $stmt_insert->bind_param("iddddddissississssi", 
+            $stmt_insert->bind_param("idddddddissssssississsss", 
                 $id, $km, $precio, $porcentaje, $min_servicio, 
                 $max_intentos_cancelacion, $multa_cliente, $multa_domiciliario, 
-                $payu_habilitado, $payu_cuenta, 
+                $payu_habilitado, $payu_cuenta, $payu_checkout_url, $payu_merchant_id, $payu_account_id, 
+                $payu_response_url, $payu_confirmation_url, $email_pay, 
                 $bancolombia_habilitado, $bancolombia_cuenta, 
                 $nequi_habilitado, $nequi_cuenta, 
                 $daviplata_habilitado, $daviplata_cuenta, 
-                $whatsapp_contacto, $correo_contacto
+                $whatsapp_contacto, $correo_contacto, $newName
             );
 
             $stmt_insert->execute();
