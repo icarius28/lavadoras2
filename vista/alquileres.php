@@ -8,10 +8,10 @@ $offset = ($page - 1) * $limit;
 $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Obtener los usuarios filtrados
-$sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE  tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%' ORDER BY alquileres.id DESC LIMIT $limit OFFSET $offset";
+$sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente, (SELECT puntuacion FROM servicio_calificaciones WHERE alquiler_id = alquileres.id LIMIT 1) as puntuacion FROM alquileres WHERE  tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%' ORDER BY alquileres.id DESC LIMIT $limit OFFSET $offset";
 if(isset($_SESSION['negocio']) && $_SESSION['negocio']){
     $negocio_id = (int) $_SESSION['negocio'];
-    $sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente FROM alquileres WHERE negocio_id = '$negocio_id' AND (tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%') ORDER BY alquileres.id DESC LIMIT $limit OFFSET $offset";
+    $sql = "SELECT alquileres.*, (select usuarios.nombre from usuarios where  alquileres.user_id = usuarios.id) as nombre_cliente, (SELECT puntuacion FROM servicio_calificaciones WHERE alquiler_id = alquileres.id LIMIT 1) as puntuacion FROM alquileres WHERE negocio_id = '$negocio_id' AND (tiempo_alquiler LIKE '%$search%' OR fecha_inicio LIKE '%$search%' OR fecha_fin LIKE '%$search%') ORDER BY alquileres.id DESC LIMIT $limit OFFSET $offset";
 }
 $result = $conn->query($sql);
 
@@ -56,6 +56,7 @@ $total_pages = ceil($total_users / $limit);
                                 <th>Total</th>
                                 <th>Tipo</th>
                                 <th>Estado</th>
+                                <th>Calificación</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -98,6 +99,15 @@ $total_pages = ceil($total_users / $limit);
                                         default:
                                             echo '<span class="badge bg-secondary">Desconocido</span>';
                                             break;
+                                    }
+                                    ?>
+                                </td>
+                                <td>
+                                    <?php 
+                                    if(isset($row['puntuacion']) && $row['puntuacion'] > 0){
+                                        for($s=0; $s<$row['puntuacion']; $s++) echo '★';
+                                    } else {
+                                        echo '<small class="text-muted">N/C</small>';
                                     }
                                     ?>
                                 </td>

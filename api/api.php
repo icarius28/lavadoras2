@@ -214,6 +214,15 @@ switch ($action) {
     case 'get_user_strikes':
         get_user_strikes($mysqli, $data);
     break;
+    case 'recaudado':
+        recaudado($mysqli, $data);
+    break;
+    case 'rate_service':
+        rate_service($mysqli, $data);
+    break;
+    case 'get_contacto_soporte':
+        get_contacto_soporte($mysqli, $data);
+    break;
     default:
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida']);
         break;
@@ -653,6 +662,25 @@ function get_config_general($mysqli, $data) {
     }
 }
 
+function get_contacto_soporte($mysqli, $data) {
+    $mysqli->set_charset("utf8mb4");
+    $result = $mysqli->query("SELECT whatsapp_contacto, correo_contacto 
+        FROM config_general WHERE id = 1 LIMIT 1");
+
+    if ($config = $result->fetch_assoc()) {
+        echo json_encode([
+            'status' => 'ok',
+            'whatsapp_contacto' => $config['whatsapp_contacto'],
+            'correo_contacto' => $config['correo_contacto']
+        ]);
+    } else {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'No se encontró información de contacto'
+        ]);
+    }
+}
+
 
 
 
@@ -845,6 +873,42 @@ $mysqli->set_charset("utf8mb4");
     } else {
         echo json_encode(['status' => 'ok', 'servicio' => null]);
     }
+}
+
+function rate_service($mysqli, $data) {
+    $alquiler_id = intval($data['alquiler_id'] ?? 0);
+    $usuario_id = intval($data['usuario_id'] ?? 0);
+    $puntuacion = intval($data['puntuacion'] ?? 0);
+    $comentario = $mysqli->real_escape_string($data['comentario'] ?? '');
+    
+    $mysqli->set_charset("utf8mb4");
+
+    if (!$alquiler_id || !$usuario_id || !$puntuacion) {
+        echo json_encode(['status' => 'error', 'message' => 'Faltan datos requeridos (alquiler_id, usuario_id, puntuacion)']);
+        return;
+    }
+
+    if ($puntuacion < 1 || $puntuacion > 5) {
+        echo json_encode(['status' => 'error', 'message' => 'La puntuación debe ser entre 1 y 5']);
+        return;
+    }
+
+    // Verificar si ya existe una calificación para este alquiler
+    $check = $mysqli->query("SELECT id FROM servicio_calificaciones WHERE alquiler_id = $alquiler_id AND usuario_id = $usuario_id");
+    if ($check && $check->num_rows > 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Ya has calificado este servicio']);
+        return;
+    }
+
+    $stmt = $mysqli->prepare("INSERT INTO servicio_calificaciones (alquiler_id, usuario_id, puntuacion, comentario) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("iiis", $alquiler_id, $usuario_id, $puntuacion, $comentario);
+
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'ok', 'message' => 'Calificación enviada correctamente']);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Error al guardar la calificación: ' . $mysqli->error]);
+    }
+    $stmt->close();
 }
 
 function update_password($mysqli, $data) {
@@ -1116,8 +1180,20 @@ $mysqli->set_charset("utf8mb4");
 
 function get_rental_all_delivery($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
-$mysqli->set_charset("utf8mb4");
-    $result = $mysqli->query("SELECT * FROM alquileres WHERE conductor_id = $userId ");
+    $mysqli->set_charset("utf8mb4");
+    
+    // Join with servicio_calificaciones to include rating information
+    $sql = "SELECT 
+                alquileres.*, 
+                servicio_calificaciones.puntuacion AS calificacion,
+                servicio_calificaciones.comentario AS comentario_calificacion
+            FROM alquileres 
+            LEFT JOIN servicio_calificaciones 
+                ON alquileres.id = servicio_calificaciones.alquiler_id 
+                AND servicio_calificaciones.usuario_id = alquileres.user_id
+            WHERE alquileres.conductor_id = $userId";
+    
+    $result = $mysqli->query($sql);
 
     $rentals = [];
     while ($rental = $result->fetch_assoc()) {
@@ -1868,9 +1944,21 @@ $mysqli->set_charset("utf8mb4");
 
 function get_rental_all($mysqli, $data) {
     $userId = intval($data['user_id'] ?? 0);
+    
     $mysqli->set_charset("utf8mb4");
-    $result = $mysqli->query("SELECT * FROM alquileres WHERE user_id = $userId ");
-$mysqli->set_charset("utf8mb4");
+    
+    // Join with servicio_calificaciones to include rating information
+    $sql = "SELECT 
+                alquileres.*, 
+                servicio_calificaciones.puntuacion AS calificacion,
+                servicio_calificaciones.comentario AS comentario_calificacion
+            FROM alquileres 
+            LEFT JOIN servicio_calificaciones 
+                ON alquileres.id = servicio_calificaciones.alquiler_id 
+                AND servicio_calificaciones.usuario_id = $userId
+            WHERE alquileres.user_id = $userId";
+    
+    $result = $mysqli->query($sql);
 
     $rentals = [];
     while ($rental = $result->fetch_assoc()) {

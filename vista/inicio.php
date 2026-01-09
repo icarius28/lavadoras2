@@ -85,7 +85,8 @@ if ($is_admin) {
 // 3. Tabla de Actividad Reciente (Común pero filtrada)
 $limit_recent = 5;
 $where_recent = $is_admin ? "1=1" : "a.negocio_id = $negocio_id";
-$recent_q = "SELECT a.*, u.nombre as usuario, l.codigo as lavadora 
+$recent_q = "SELECT a.*, u.nombre as usuario, l.codigo as lavadora,
+             (SELECT puntuacion FROM servicio_calificaciones WHERE alquiler_id = a.id LIMIT 1) as puntuacion 
              FROM alquileres a
              JOIN usuarios u ON a.user_id = u.id
              JOIN lavadoras l ON a.lavadora_id = l.id
@@ -247,6 +248,7 @@ $recent_res = $conn->query($recent_q);
                         <tr>
                             <th>Usuario</th>
                             <th>Estado</th>
+                            <th>Calificación</th>
                             <th class="text-end">Valor</th>
                         </tr>
                     </thead>
@@ -271,6 +273,13 @@ $recent_res = $conn->query($recent_q);
                                         <small class="text-muted"><?= date('d M H:i', strtotime($row['fecha_inicio'])) ?></small>
                                     </td>
                                     <td><span class="badge <?= $status_badge ?> rounded-pill"><?= $status_text ?></span></td>
+                                    <td class="text-warning">
+                                        <?php if(isset($row['puntuacion']) && $row['puntuacion'] > 0): ?>
+                                            <?= str_repeat('★', $row['puntuacion']) ?>
+                                        <?php else: ?>
+                                            <small class="text-muted">-</small>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-end text-success fw-bold">$<?= number_format($row['tiempo_alquiler'] * $row['valor_servicio'],0,',','.') ?></td>
                                 </tr>
                             <?php endwhile; ?>
