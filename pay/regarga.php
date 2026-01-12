@@ -1,9 +1,61 @@
 <?php
-// Recibir datos (o definir valores por defecto)
+// Conectar directamente a la base de datos (sin dependencias externas)
+$db_host = "localhost";
+$db_user = "alquilav_ndb";
+$db_pass = "&^L1s,)Z_W56";
+$db_name = "alquilav_ndb";
+
+
+
+$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+
+// Verificar conexión
+if ($conn->connect_error) {
+    die("Error de conexión: " . $conn->connect_error);
+}
+
+$conn->set_charset("utf8mb4");
+
+// Obtener configuración de PayU desde la base de datos
+$config_query = "SELECT payu_merchant_id, payu_account_id, payu_checkout_url, 
+                        payu_response_url, payu_confirmation_url 
+                 FROM config_general WHERE id = 1";
+$config_result = $conn->query($config_query);
+
+// Valores por defecto de configuración PayU
 $apiKey = "4Vj8eK4rloUd272L48hsrarnUA";
-$merchantId = $_GET['merchantId'] ?? "508029";
-$accountId = $_GET['accountId'] ?? "512321";
-$description = $_GET['description'] ?? "Pago multa";
+$merchantId = "508029";
+$accountId = "512321";
+$checkoutUrl = "https://sandbox.checkout.payulatam.com/ppp-web-gateway-payu/";
+$responseUrl = "https://alquilav.com/response_reload.php";
+$confirmationUrl = "https://alquilav.com/confirmation_reload.php";
+
+// Si existe configuración en BD, usar esos valores
+if ($config_result && $config_row = $config_result->fetch_assoc()) {
+    if (!empty($config_row['payu_merchant_id'])) {
+        $merchantId = $config_row['payu_merchant_id'];
+    }
+    if (!empty($config_row['payu_account_id'])) {
+        $accountId = $config_row['payu_account_id'];
+    }
+    if (!empty($config_row['payu_checkout_url'])) {
+        $checkoutUrl = $config_row['payu_checkout_url'];
+    }
+    if (!empty($config_row['payu_response_url'])) {
+        // Para recarga, usar response_reload.php
+        $responseUrl = str_replace('response.php', 'response_reload.php', $config_row['payu_response_url']);
+    }
+    if (!empty($config_row['payu_confirmation_url'])) {
+        // Para recarga, usar confirmation_reload.php
+        $confirmationUrl = str_replace('confirmation.php', 'confirmation_reload.php', $config_row['payu_confirmation_url']);
+    }
+}
+
+// Cerrar conexión
+$conn->close();
+
+// Recibir datos de la transacción por GET
+$description = $_GET['description'] ?? "Recarga de saldo";
 $referenceCode = $_GET['referenceCode'] ?? "TestPayUs001";
 $amount = $_GET['amount'] ?? "0";
 $tax = $_GET['tax'] ?? "0";
@@ -11,8 +63,20 @@ $taxReturnBase = $_GET['taxReturnBase'] ?? "0";
 $currency = $_GET['currency'] ?? "COP";
 $buyerEmail = $_GET['buyerEmail'] ?? "test@test.com";
 $test = $_GET['test'] ?? "1";
-$responseUrl = $_GET['responseUrl'] ?? "https://alquilav.com/response_reload.php";
-$confirmationUrl = $_GET['confirmationUrl'] ?? "https://alquilav.com/confirmation_reload.php";
+
+// Permitir sobrescribir valores por GET (para testing o casos especiales)
+if (isset($_GET['merchantId'])) {
+    $merchantId = $_GET['merchantId'];
+}
+if (isset($_GET['accountId'])) {
+    $accountId = $_GET['accountId'];
+}
+if (isset($_GET['responseUrl'])) {
+    $responseUrl = $_GET['responseUrl'];
+}
+if (isset($_GET['confirmationUrl'])) {
+    $confirmationUrl = $_GET['confirmationUrl'];
+}
 
 // Generar firma
 $signature = md5($apiKey . "~" . $merchantId . "~" . $referenceCode . "~" . $amount . "~" . $currency);
@@ -71,7 +135,7 @@ function esc($str) {
     <div class="loader"></div>
     <p>Por favor, espera mientras te conectamos al sistema de pagos.</p>
 
-    <form id="payu_form" method="post" action="https://sandbox.checkout.payulatam.com/ppp-web-gateway-payu/">
+    <form id="payu_form" method="post" action="<?= esc($checkoutUrl) ?>">
       <input name="merchantId"      type="hidden"  value="<?= esc($merchantId) ?>">
       <input name="accountId"       type="hidden"  value="<?= esc($accountId) ?>">
       <input name="description"     type="hidden"  value="<?= esc($description) ?>">
