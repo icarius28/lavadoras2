@@ -300,7 +300,7 @@ $mysqli->set_charset("utf8mb4");
     }
 
     // Preparar la consulta para evitar inyección SQL
-    $stmt = $mysqli->prepare("SELECT * FROM lavadoras WHERE negocio_id = ?");
+    $stmt = $mysqli->prepare("SELECT * FROM lavadoras WHERE negocio_id = ? AND status != 'eliminado'");
     if (!$stmt) {
         echo json_encode(['status' => 'error', 'message' => 'Error en la preparación de la consulta', 'error' => $mysqli->error]);
         return;
@@ -2004,7 +2004,7 @@ function lavadoras_asignadas($mysqli, $data) {
                 ELSE NULL
             END as cliente_actual
         FROM lavadoras 
-        WHERE lavadoras.id_domiciliario = ?
+        WHERE lavadoras.id_domiciliario = ? AND lavadoras.status != 'eliminado'
         ORDER BY lavadoras.status ASC, lavadoras.id ASC
     ");
     
